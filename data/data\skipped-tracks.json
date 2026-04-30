@@ -1,0 +1,26 @@
+{
+  "source": "soundcloud",
+  "exportedAt": "2026-04-30T22:48:07.859392+00:00",
+  "account": "sazran",
+  "skipped": 2,
+  "tracks": [
+    {
+      "title": "journey-ends-abruptly",
+      "artist": "sazran",
+      "id": 240577042,
+      "url": "https://soundcloud.com/sazran/journey-ends-abruptly?utm_medium=api&utm_campaign=social_sharing&utm_source=id_331030",
+      "downloadable": false,
+      "hasDownloadUrl": false,
+      "reason": "No official download_url exposed by SoundCloud API"
+    },
+    {
+      "title": "Mixdown-ophir-yonatan",
+      "artist": "sazran",
+      "id": 230042854,
+      "url": "https://soundcloud.com/sazran/mixdown-ophir-yonatan/s-WoofV?utm_medium=api&utm_campaign=social_sharing&utm_source=id_331030",
+      "downloadable": false,
+      "hasDownloadUrl": false,
+      "reason": "No official download_url exposed by SoundCloud API"
+    }
+  ]
+}
