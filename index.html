@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Musicloud</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Main navigation">
+        <a class="brand" href="#" aria-label="Musicloud home">
+          <span class="brand-mark"></span>
+          <span>Musicloud</span>
+        </a>
+
+        <nav class="nav-list">
+          <a class="nav-item active" href="#">
+            <span data-lucide="house"></span>
+            <span>Home</span>
+          </a>
+          <a class="nav-item" href="#">
+            <span data-lucide="radio"></span>
+            <span>Stream</span>
+          </a>
+          <a class="nav-item" href="#">
+            <span data-lucide="compass"></span>
+            <span>Discover</span>
+          </a>
+          <a class="nav-item" href="#">
+            <span data-lucide="heart"></span>
+            <span>Liked</span>
+          </a>
+          <a class="nav-item" href="#">
+            <span data-lucide="list-music"></span>
+            <span>Playlists</span>
+          </a>
+          <a class="nav-item" href="#import-studio">
+            <span data-lucide="folder-input"></span>
+            <span>Import</span>
+          </a>
+        </nav>
+
+        <section class="upload-panel" aria-labelledby="upload-title">
+          <div class="upload-icon"><span data-lucide="cloud-up"></span></div>
+          <h2 id="upload-title">Launch a cloudcast</h2>
+          <p>Collect drafts, mixes, notes, and listener signals in your own sky.</p>
+          <button class="primary-btn" type="button">
+            <span data-lucide="upload"></span>
+            Upload
+          </button>
+        </section>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div class="search-wrap">
+            <span data-lucide="search"></span>
+            <input id="searchInput" type="search" placeholder="Search tracks, artists, moods" aria-label="Search tracks, artists, moods">
+          </div>
+          <div class="top-actions">
+            <button class="icon-btn" type="button" aria-label="Notifications" title="Notifications">
+              <span data-lucide="bell"></span>
+            </button>
+            <button class="icon-btn" type="button" aria-label="Messages" title="Messages">
+              <span data-lucide="message-circle"></span>
+            </button>
+            <button class="profile-btn" type="button" aria-label="Open profile">
+              <span class="avatar mini avatar-gradient-one"></span>
+              <span>Sazran</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow">Listening weather</p>
+            <h1>Musicloud</h1>
+            <p>A floating studio for tracks, scenes, and soft-release discoveries.</p>
+            <div class="hero-actions">
+              <button class="play-featured" type="button" data-featured-play>
+                <span data-lucide="play"></span>
+                Play featured
+              </button>
+              <button class="secondary-btn" type="button">
+                <span data-lucide="sparkles"></span>
+                Open atlas
+              </button>
+            </div>
+          </div>
+          <div class="hero-visual" aria-label="Featured mix artwork">
+            <div class="sky-map">
+              <span class="signal signal-one"></span>
+              <span class="signal signal-two"></span>
+              <span class="signal signal-three"></span>
+              <span class="signal signal-four"></span>
+              <div class="cloud-core">
+                <span data-lucide="cloud"></span>
+              </div>
+            </div>
+            <div class="live-chip">
+              <span data-lucide="cloud-sun"></span>
+              Low-gravity radio
+            </div>
+          </div>
+        </section>
+
+        <section id="import-studio" class="import-studio" aria-labelledby="import-title">
+          <div class="import-head">
+            <div>
+              <p class="eyebrow">Import studio</p>
+              <h2 id="import-title">Bring your SoundCloud tracks home</h2>
+            </div>
+            <span class="import-badge">OAuth only</span>
+          </div>
+
+          <div class="import-grid">
+            <article class="import-card">
+              <div class="import-card-icon">
+                <span data-lucide="key-round"></span>
+              </div>
+              <h3>1. Connect safely</h3>
+              <p>Use your own SoundCloud developer app. Add this redirect URL there first: <strong>http://127.0.0.1:8787/callback/</strong></p>
+              <label for="clientIdInput">SoundCloud client ID</label>
+              <input id="clientIdInput" class="import-input" type="text" placeholder="client_id from SoundCloud">
+              <label for="redirectInput">Redirect URL</label>
+              <input id="redirectInput" class="import-input" type="url" value="http://127.0.0.1:8787/callback/">
+              <button id="buildAuthButton" class="primary-btn import-action" type="button">
+                <span data-lucide="external-link"></span>
+                Build auth link
+              </button>
+              <a id="authLink" class="auth-link" href="#" target="_blank" rel="noreferrer">Authorize with SoundCloud</a>
+            </article>
+
+            <article class="import-card">
+              <div class="import-card-icon">
+                <span data-lucide="terminal"></span>
+              </div>
+              <h3>2. Download originals</h3>
+              <p>Run one guided command. It starts Musicloud, opens SoundCloud, catches the callback, then downloads your official originals.</p>
+              <button id="copyAuthCommand" class="secondary-btn import-action" type="button">
+                <span data-lucide="copy"></span>
+                Copy guided command
+              </button>
+              <button id="copyImportCommand" class="secondary-btn import-action" type="button">
+                <span data-lucide="copy"></span>
+                Copy Python command
+              </button>
+              <pre id="commandPreview" class="command-preview">start_musicloud_import.cmd</pre>
+            </article>
+
+            <article class="import-card">
+              <div class="import-card-icon">
+                <span data-lucide="refresh-cw"></span>
+              </div>
+              <h3>3. Refresh Musicloud</h3>
+              <p>When the script finishes, it creates <strong>data/tracks.json</strong>. Refresh this page and your downloaded tracks load into the player.</p>
+              <button id="copyRefreshCommand" class="secondary-btn import-action" type="button">
+                <span data-lucide="copy"></span>
+                Copy website link
+              </button>
+              <p id="importStatus" class="import-status">Waiting for OAuth download.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="content-grid">
+          <div class="feed-column">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Signal garden</p>
+                <h2>Drifting through the feed</h2>
+              </div>
+              <div class="filter-tabs" role="tablist" aria-label="Track filter">
+                <button class="tab active" type="button" data-filter="all">All</button>
+                <button class="tab" type="button" data-filter="electronic">Electronic</button>
+                <button class="tab" type="button" data-filter="hiphop">Hip hop</button>
+                <button class="tab" type="button" data-filter="indie">Indie</button>
+              </div>
+            </div>
+
+            <div id="trackList" class="track-list" aria-live="polite"></div>
+          </div>
+
+          <aside class="right-rail">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Artists rising</h2>
+                <button class="text-btn" type="button">See all</button>
+              </div>
+              <div class="artist-list">
+                <article class="artist-row">
+                  <span class="avatar avatar-gradient-two"></span>
+                  <div>
+                    <h3>Mira Vale</h3>
+                    <p>42.8K followers</p>
+                  </div>
+                  <button class="follow-btn" type="button">Follow</button>
+                </article>
+                <article class="artist-row">
+                  <span class="avatar avatar-gradient-three"></span>
+                  <div>
+                    <h3>Low Lanterns</h3>
+                    <p>18.2K followers</p>
+                  </div>
+                  <button class="follow-btn" type="button">Follow</button>
+                </article>
+                <article class="artist-row">
+                  <span class="avatar avatar-gradient-four"></span>
+                  <div>
+                    <h3>Juno Static</h3>
+                    <p>61.4K followers</p>
+                  </div>
+                  <button class="follow-btn" type="button">Follow</button>
+                </article>
+              </div>
+            </section>
+
+            <section class="panel queue-panel">
+              <div class="panel-head">
+                <h2>Up next</h2>
+                <button class="icon-btn small" type="button" aria-label="Shuffle queue" title="Shuffle queue">
+                  <span data-lucide="shuffle"></span>
+                </button>
+              </div>
+              <ol id="queueList" class="queue-list"></ol>
+            </section>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <footer class="player" aria-label="Audio player">
+      <div class="now-playing">
+        <div id="playerArt" class="mini-cover cover-one"></div>
+        <div>
+          <strong id="playerTitle">Select a track</strong>
+          <span id="playerArtist">Musicloud</span>
+        </div>
+      </div>
+      <div class="player-controls">
+        <button class="icon-btn" type="button" aria-label="Previous track" title="Previous track" data-prev>
+          <span data-lucide="skip-back"></span>
+        </button>
+        <button class="main-play" type="button" aria-label="Play or pause" data-player-toggle>
+          <span data-lucide="play"></span>
+        </button>
+        <button class="icon-btn" type="button" aria-label="Next track" title="Next track" data-next>
+          <span data-lucide="skip-forward"></span>
+        </button>
+      </div>
+      <div class="player-progress">
+        <span id="currentTime">0:00</span>
+        <input id="progressRange" type="range" min="0" max="100" value="0" aria-label="Track progress">
+        <span id="durationTime">0:00</span>
+      </div>
+      <div class="volume-wrap">
+        <span data-lucide="volume-2"></span>
+        <input type="range" min="0" max="100" value="78" aria-label="Volume">
+      </div>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>

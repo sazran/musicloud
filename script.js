@@ -1,0 +1,501 @@
+const fallbackTracks = [
+  {
+    title: "Cloudline Signal",
+    artist: "Mira Vale",
+    genre: "electronic",
+    duration: 213,
+    plays: "128K",
+    comments: 94,
+    likes: 8200,
+    cover: "cover-one",
+    pattern: [22, 38, 54, 30, 76, 46, 64, 28]
+  },
+  {
+    title: "Window Seat Freestyle",
+    artist: "Northline",
+    genre: "hiphop",
+    duration: 188,
+    plays: "76K",
+    comments: 51,
+    likes: 3900,
+    cover: "cover-two",
+    pattern: [36, 68, 44, 82, 34, 58, 72, 40]
+  },
+  {
+    title: "Moonroom Cinema",
+    artist: "Low Lanterns",
+    genre: "indie",
+    duration: 244,
+    plays: "209K",
+    comments: 138,
+    likes: 11800,
+    cover: "cover-three",
+    pattern: [18, 30, 46, 62, 50, 34, 70, 56]
+  },
+  {
+    title: "Chrome Weather",
+    artist: "Juno Static",
+    genre: "electronic",
+    duration: 231,
+    plays: "344K",
+    comments: 211,
+    likes: 21200,
+    cover: "cover-four",
+    pattern: [60, 42, 78, 36, 88, 50, 70, 44]
+  },
+  {
+    title: "Satellite Anthem",
+    artist: "The Halftones",
+    genre: "indie",
+    duration: 201,
+    plays: "91K",
+    comments: 73,
+    likes: 5400,
+    cover: "cover-five",
+    pattern: [28, 74, 40, 66, 48, 80, 36, 58]
+  }
+];
+
+let tracks = [...fallbackTracks];
+let activeFilter = "all";
+let activeTrack = 0;
+let isPlaying = false;
+let currentSecond = 0;
+let timerId = null;
+const audio = new Audio();
+audio.preload = "metadata";
+
+const trackList = document.querySelector("#trackList");
+const queueList = document.querySelector("#queueList");
+const searchInput = document.querySelector("#searchInput");
+const playerTitle = document.querySelector("#playerTitle");
+const playerArtist = document.querySelector("#playerArtist");
+const playerArt = document.querySelector("#playerArt");
+const progressRange = document.querySelector("#progressRange");
+const currentTime = document.querySelector("#currentTime");
+const durationTime = document.querySelector("#durationTime");
+const playerToggle = document.querySelector("[data-player-toggle]");
+const featuredPlay = document.querySelector("[data-featured-play]");
+const clientIdInput = document.querySelector("#clientIdInput");
+const redirectInput = document.querySelector("#redirectInput");
+const buildAuthButton = document.querySelector("#buildAuthButton");
+const authLink = document.querySelector("#authLink");
+const copyAuthCommand = document.querySelector("#copyAuthCommand");
+const copyImportCommand = document.querySelector("#copyImportCommand");
+const copyRefreshCommand = document.querySelector("#copyRefreshCommand");
+const commandPreview = document.querySelector("#commandPreview");
+const importStatus = document.querySelector("#importStatus");
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60).toString().padStart(2, "0");
+  return `${mins}:${secs}`;
+}
+
+function formatCount(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return value || "0";
+  if (number >= 1000000) return `${(number / 1000000).toFixed(1)}M`;
+  if (number >= 1000) return `${(number / 1000).toFixed(1)}K`;
+  return number.toLocaleString();
+}
+
+function normalizeTrack(track, index) {
+  return {
+    title: track.title || `Untitled ${index + 1}`,
+    artist: track.artist || "Musicloud",
+    genre: (track.genre || "cloudcast").toLowerCase(),
+    duration: Number(track.duration) || 0,
+    plays: track.plays || 0,
+    comments: Number(track.comments) || 0,
+    likes: Number(track.likes) || 0,
+    cover: track.cover || `cover-${["one", "two", "three", "four", "five"][index % 5]}`,
+    artwork: track.artwork || "",
+    src: track.src || "",
+    soundcloudUrl: track.soundcloudUrl || "",
+    pattern: track.pattern || fallbackTracks[index % fallbackTracks.length].pattern
+  };
+}
+
+function makeRandomString(byteLength = 32) {
+  const bytes = new Uint8Array(byteLength);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+}
+
+async function makePkceChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+}
+
+async function copyText(text) {
+  await navigator.clipboard.writeText(text);
+}
+
+function showCommand(text) {
+  commandPreview.textContent = text;
+}
+
+function getAuthCommand() {
+  return "start_musicloud_import.cmd";
+}
+
+function getImportCommand() {
+  return "py start_musicloud_import.py";
+}
+
+function getFilteredTracks() {
+  const query = searchInput.value.trim().toLowerCase();
+  return tracks.filter((track) => {
+    const matchesFilter = activeFilter === "all" || track.genre === activeFilter;
+    const matchesSearch = `${track.title} ${track.artist} ${track.genre}`.toLowerCase().includes(query);
+    return matchesFilter && matchesSearch;
+  });
+}
+
+function getTrackDuration(track) {
+  return track.duration || Math.round(audio.duration) || 180;
+}
+
+function getCoverMarkup(track, className = "cover") {
+  if (track.artwork) {
+    return `<img class="${className}" src="${escapeHtml(track.artwork)}" alt="" loading="lazy">`;
+  }
+  return `<div class="${className} ${track.cover}" aria-hidden="true"></div>`;
+}
+
+function makeWaveform(track, trackIndex) {
+  const duration = getTrackDuration(track);
+  const bars = Array.from({ length: 64 }, (_, index) => {
+    const base = track.pattern[index % track.pattern.length];
+    const variation = (index * 11 + track.title.length * 3) % 24;
+    const height = Math.min(92, base + variation);
+    const playedClass = trackIndex === activeTrack && index / 64 <= currentSecond / duration ? " played" : "";
+    return `<span class="bar${playedClass}" style="height:${height}%"></span>`;
+  }).join("");
+
+  return `<button class="waveform" type="button" aria-label="Play ${escapeHtml(track.title)}" data-track="${trackIndex}">${bars}</button>`;
+}
+
+function renderTracks() {
+  const filtered = getFilteredTracks();
+  trackList.innerHTML = filtered.length
+    ? filtered.map((track) => {
+        const trackIndex = tracks.indexOf(track);
+        const isActive = trackIndex === activeTrack ? " active" : "";
+        const duration = getTrackDuration(track);
+        return `
+          <article class="track-card${isActive}">
+            ${getCoverMarkup(track)}
+            <div class="track-main">
+              <div class="track-top">
+                <div>
+                  <p class="track-artist">${escapeHtml(track.artist)}</p>
+                  <h3 class="track-title">${escapeHtml(track.title)}</h3>
+                </div>
+                <div class="track-actions">
+                  <button class="track-action" type="button" data-track="${trackIndex}" data-play>
+                    <span data-lucide="${trackIndex === activeTrack && isPlaying ? "pause" : "play"}"></span>
+                    ${trackIndex === activeTrack && isPlaying ? "Pause" : "Play"}
+                  </button>
+                  <button class="track-action" type="button" data-like>
+                    <span data-lucide="heart"></span>
+                    ${formatCount(track.likes)}
+                  </button>
+                </div>
+              </div>
+              ${makeWaveform(track, trackIndex)}
+              <div class="track-meta">
+                <span>${formatCount(track.plays)} plays</span>
+                <span>${formatCount(track.comments)} comments</span>
+                <span>${formatTime(duration)}</span>
+                <span>${escapeHtml(track.genre)}</span>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("")
+    : `<div class="panel"><h2>No tracks found</h2><p>Try another search or genre.</p></div>`;
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+function renderQueue() {
+  queueList.innerHTML = tracks.slice(0, 4).map((track, index) => `
+    <li>
+      <span class="queue-index">${index + 1}</span>
+      <div>
+        <h3>${escapeHtml(track.title)}</h3>
+        <p>${escapeHtml(track.artist)}</p>
+      </div>
+    </li>
+  `).join("");
+}
+
+function syncPlayer() {
+  const track = tracks[activeTrack];
+  playerTitle.textContent = track.title;
+  playerArtist.textContent = track.artist;
+  if (track.artwork) {
+    playerArt.className = "mini-cover";
+    playerArt.style.backgroundImage = `url("${track.artwork}")`;
+  } else {
+    playerArt.className = `mini-cover ${track.cover}`;
+    playerArt.style.backgroundImage = "";
+  }
+  const duration = getTrackDuration(track);
+  progressRange.value = String((currentSecond / duration) * 100);
+  currentTime.textContent = formatTime(currentSecond);
+  durationTime.textContent = formatTime(duration);
+  playerToggle.innerHTML = `<span data-lucide="${isPlaying ? "pause" : "play"}"></span>`;
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+function loadAudioForActiveTrack(startAt = 0) {
+  const track = tracks[activeTrack];
+  if (!track.src) return false;
+  const currentSrc = audio.getAttribute("data-track-src");
+  if (currentSrc !== track.src) {
+    audio.src = track.src;
+    audio.setAttribute("data-track-src", track.src);
+  }
+  try {
+    audio.currentTime = startAt;
+  } catch {
+    audio.addEventListener("loadedmetadata", () => {
+      audio.currentTime = startAt;
+    }, { once: true });
+  }
+  return true;
+}
+
+function playTrack(trackIndex, startAt = 0) {
+  activeTrack = trackIndex;
+  currentSecond = startAt;
+  isPlaying = true;
+  if (loadAudioForActiveTrack(startAt)) {
+    window.clearInterval(timerId);
+    audio.play().catch(() => {
+      isPlaying = false;
+      syncPlayer();
+      renderTracks();
+    });
+  } else {
+    startTimer();
+  }
+  syncPlayer();
+  renderTracks();
+}
+
+function startTimer() {
+  window.clearInterval(timerId);
+  timerId = window.setInterval(() => {
+    if (!isPlaying) return;
+    const track = tracks[activeTrack];
+    currentSecond += 1;
+    if (currentSecond >= getTrackDuration(track)) {
+      activeTrack = (activeTrack + 1) % tracks.length;
+      currentSecond = 0;
+    }
+    syncPlayer();
+    renderTracks();
+  }, 1000);
+}
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  if (isPlaying) {
+    if (loadAudioForActiveTrack(currentSecond)) {
+      window.clearInterval(timerId);
+      audio.play().catch(() => {
+        isPlaying = false;
+        syncPlayer();
+        renderTracks();
+      });
+    } else {
+      startTimer();
+    }
+  } else {
+    audio.pause();
+  }
+  syncPlayer();
+  renderTracks();
+}
+
+document.addEventListener("click", (event) => {
+  const playButton = event.target.closest("[data-play]");
+  const waveform = event.target.closest(".waveform");
+  const likeButton = event.target.closest("[data-like]");
+  const filterButton = event.target.closest("[data-filter]");
+
+  if (playButton) {
+    const trackIndex = Number(playButton.dataset.track);
+    if (trackIndex === activeTrack) {
+      togglePlay();
+    } else {
+      playTrack(trackIndex);
+    }
+  }
+
+  if (waveform) {
+    const trackIndex = Number(waveform.dataset.track);
+    const rect = waveform.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    playTrack(trackIndex, Math.floor(getTrackDuration(tracks[trackIndex]) * ratio));
+  }
+
+  if (likeButton) {
+    likeButton.classList.toggle("liked");
+  }
+
+  if (filterButton) {
+    activeFilter = filterButton.dataset.filter;
+    document.querySelectorAll("[data-filter]").forEach((button) => {
+      button.classList.toggle("active", button === filterButton);
+    });
+    renderTracks();
+  }
+});
+
+searchInput.addEventListener("input", renderTracks);
+
+playerToggle.addEventListener("click", togglePlay);
+featuredPlay.addEventListener("click", () => playTrack(0));
+
+document.querySelector("[data-prev]").addEventListener("click", () => {
+  activeTrack = (activeTrack - 1 + tracks.length) % tracks.length;
+  currentSecond = 0;
+  if (isPlaying) playTrack(activeTrack);
+  syncPlayer();
+  renderTracks();
+});
+
+document.querySelector("[data-next]").addEventListener("click", () => {
+  activeTrack = (activeTrack + 1) % tracks.length;
+  currentSecond = 0;
+  if (isPlaying) playTrack(activeTrack);
+  syncPlayer();
+  renderTracks();
+});
+
+progressRange.addEventListener("input", () => {
+  const track = tracks[activeTrack];
+  currentSecond = Math.floor((Number(progressRange.value) / 100) * getTrackDuration(track));
+  if (track.src && audio.src) {
+    audio.currentTime = currentSecond;
+  }
+  syncPlayer();
+  renderTracks();
+});
+
+buildAuthButton.addEventListener("click", async () => {
+  const clientId = clientIdInput.value.trim();
+  const redirectUri = redirectInput.value.trim();
+  if (!clientId || !redirectUri) {
+    showCommand("Add your SoundCloud client ID and redirect URL first.");
+    return;
+  }
+
+  const verifier = makeRandomString(32);
+  const challenge = await makePkceChallenge(verifier);
+  const state = makeRandomString(18);
+  sessionStorage.setItem("soundcloud_pkce_verifier", verifier);
+  sessionStorage.setItem("soundcloud_oauth_state", state);
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    state
+  });
+
+  authLink.href = `https://secure.soundcloud.com/authorize?${params.toString()}`;
+  authLink.classList.add("ready");
+  showCommand(`You can test the auth URL here, but the recommended path is the local helper because it catches the OAuth callback and downloads tracks:\n\n${getAuthCommand()}`);
+});
+
+copyAuthCommand.addEventListener("click", async () => {
+  const command = getAuthCommand();
+  showCommand(command);
+  await copyText(command);
+});
+
+copyImportCommand.addEventListener("click", async () => {
+  const command = getImportCommand();
+  showCommand(command);
+  await copyText(command);
+});
+
+copyRefreshCommand.addEventListener("click", async () => {
+  const command = "http://127.0.0.1:5173/";
+  showCommand(command);
+  await copyText(command);
+});
+
+audio.addEventListener("loadedmetadata", () => {
+  tracks[activeTrack].duration = Math.round(audio.duration);
+  syncPlayer();
+  renderTracks();
+});
+
+audio.addEventListener("timeupdate", () => {
+  currentSecond = Math.floor(audio.currentTime);
+  syncPlayer();
+  renderTracks();
+});
+
+audio.addEventListener("ended", () => {
+  activeTrack = (activeTrack + 1) % tracks.length;
+  currentSecond = 0;
+  if (isPlaying) {
+    playTrack(activeTrack);
+  }
+});
+
+async function loadExportedTracks() {
+  try {
+    const response = await fetch("data/tracks.json", { cache: "no-store" });
+    if (!response.ok) return;
+    const manifest = await response.json();
+    if (!Array.isArray(manifest.tracks) || manifest.tracks.length === 0) return;
+    tracks = manifest.tracks.map(normalizeTrack);
+    activeTrack = 0;
+    currentSecond = 0;
+  } catch {
+    tracks = [...fallbackTracks];
+  }
+}
+
+async function init() {
+  await loadExportedTracks();
+  renderQueue();
+  renderTracks();
+  syncPlayer();
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+init();
