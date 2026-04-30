@@ -1,10 +1,22 @@
-﻿{
-    "source":  "soundcloud",
-    "exportedAt":  "2026-04-30T20:31:36.8697580Z",
-    "account":  "sazran",
-    "downloaded":  0,
-    "skipped":  94,
-    "tracks":  [
-
-               ]
+{
+  "source": "soundcloud",
+  "exportedAt": "2026-04-30T22:11:08.105297+00:00",
+  "account": "sazran",
+  "downloaded": 1,
+  "skipped": 92,
+  "tracks": [
+    {
+      "title": "Koolu",
+      "artist": "sazran",
+      "genre": "Rock",
+      "duration": 320,
+      "plays": 21,
+      "comments": 0,
+      "likes": 0,
+      "src": "tracks/Koolu-565106316.wav",
+      "artwork": "",
+      "soundcloudUrl": "https://soundcloud.com/sazran/koolu?utm_medium=api&utm_campaign=social_sharing&utm_source=id_331030",
+      "soundcloudId": 565106316
+    }
+  ]
 }

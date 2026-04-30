@@ -24,6 +24,7 @@ SITE_PORT = 5173
 CALLBACK_HOST = "127.0.0.1"
 CALLBACK_PORT = 8787
 CALLBACK_PATH = "/callback/"
+DEFAULT_REDIRECT_URI = "https://tubamobile.com/musicloud-soundcloud-callback/"
 API_BASE = "https://api.soundcloud.com"
 
 
@@ -41,6 +42,22 @@ def safe_name(name):
     return cleaned or "untitled"
 
 
+def detect_audio_extension(path):
+    with path.open("rb") as file:
+        header = file.read(16)
+    if header.startswith(b"RIFF") and header[8:12] == b"WAVE":
+        return ".wav"
+    if header.startswith(b"ID3") or header[:2] == b"\xff\xfb":
+        return ".mp3"
+    if header.startswith(b"fLaC"):
+        return ".flac"
+    if header.startswith(b"OggS"):
+        return ".ogg"
+    if header[4:8] == b"ftyp":
+        return ".m4a"
+    return None
+
+
 def request_json(url, token=None, method="GET", data=None):
     headers = {"Accept": "application/json; charset=utf-8"}
     body = None
@@ -53,6 +70,29 @@ def request_json(url, token=None, method="GET", data=None):
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     with urllib.request.urlopen(req, timeout=60) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def resolve_download_url(url, token):
+    headers = {"Accept": "application/json; charset=utf-8"}
+    if token:
+        headers["Authorization"] = f"OAuth {token}"
+
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    with urllib.request.urlopen(req, timeout=60) as response:
+        payload = response.read()
+        content_type = response.headers.get("Content-Type", "")
+        final_url = response.geturl()
+
+    if "application/json" in content_type.lower():
+        info = json.loads(payload.decode("utf-8"))
+        return info.get("redirectUri") or info.get("location") or info.get("url")
+
+    # Some SoundCloud download URLs resolve straight to the file instead of
+    # returning JSON. In that case urllib has already followed the redirect.
+    if final_url and final_url != url:
+        return final_url
+
+    raise RuntimeError("Download endpoint did not return JSON or a redirected file URL")
 
 
 def download_file(url, path):
@@ -284,8 +324,24 @@ def export_tracks(token, enable_downloads=False):
             continue
 
         print(f"Downloading '{title}'...")
-        info = request_json(download_url, token=token)
-        redirect_url = info.get("redirectUri")
+        try:
+            redirect_url = resolve_download_url(download_url, token)
+        except Exception as exc:
+            skipped += 1
+            skipped_tracks.append(
+                {
+                    "title": title,
+                    "artist": artist,
+                    "id": track.get("id"),
+                    "url": track.get("permalink_url"),
+                    "downloadable": bool(track.get("downloadable")),
+                    "hasDownloadUrl": True,
+                    "reason": f"Could not resolve download URL: {exc}",
+                }
+            )
+            print(f"Skipping '{title}' because the download URL could not be resolved: {exc}")
+            continue
+
         if not redirect_url:
             skipped += 1
             skipped_tracks.append(
@@ -305,6 +361,12 @@ def export_tracks(token, enable_downloads=False):
         filename = f"{safe_name(title)}-{track.get('id')}{ext}"
         file_path = tracks_dir / filename
         download_file(redirect_url, file_path)
+        detected_ext = detect_audio_extension(file_path)
+        if detected_ext and detected_ext != file_path.suffix.lower():
+            renamed_path = file_path.with_suffix(detected_ext)
+            file_path.replace(renamed_path)
+            file_path = renamed_path
+            filename = file_path.name
 
         artwork = track.get("artwork_url") or ""
         if artwork:
@@ -362,7 +424,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Interactive Musicloud SoundCloud importer")
     parser.add_argument(
         "--redirect-uri",
-        default=f"http://{CALLBACK_HOST}:{CALLBACK_PORT}{CALLBACK_PATH}",
+        default=DEFAULT_REDIRECT_URI,
         help="OAuth redirect URI registered in your SoundCloud app",
     )
     return parser.parse_args()

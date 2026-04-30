@@ -35,7 +35,7 @@ If SoundCloud finds your tracks but exposes zero download links, the script offe
 Step 1 is creating or opening your SoundCloud developer app and adding this exact redirect URL:
 
 ```text
-http://127.0.0.1:8787/callback/
+https://tubamobile.com/musicloud-soundcloud-callback/
 ```
 
 Then copy your app values:
