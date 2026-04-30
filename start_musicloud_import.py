@@ -20,6 +20,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
+LOCAL_CONFIG_PATH = ROOT / ".musicloud-soundcloud.json"
 SITE_PORT = 5173
 CALLBACK_HOST = "127.0.0.1"
 CALLBACK_PORT = 8787
@@ -133,6 +134,38 @@ def start_site():
         raise RuntimeError(f"I tried to start Musicloud at {site_url}, but it did not respond.")
     print(f"Musicloud is running at {site_url}")
     return site_url
+
+
+def load_local_config():
+    if not LOCAL_CONFIG_PATH.exists():
+        return {}
+    try:
+        return json.loads(LOCAL_CONFIG_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_local_config(config):
+    LOCAL_CONFIG_PATH.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+
+def get_credentials(config, reset=False):
+    if not reset and config.get("client_id") and config.get("client_secret"):
+        print("Using saved SoundCloud app credentials from .musicloud-soundcloud.json")
+        return config["client_id"], config["client_secret"]
+
+    say("Credentials")
+    print("Paste values from your SoundCloud app. These are not your SoundCloud login password.")
+    client_id = input("client_id: ").strip()
+    client_secret = input("client_secret: ").strip()
+    if not client_id or not client_secret:
+        raise RuntimeError("client_id and client_secret are required.")
+
+    config["client_id"] = client_id
+    config["client_secret"] = client_secret
+    save_local_config(config)
+    print("Saved credentials locally in .musicloud-soundcloud.json")
+    return client_id, client_secret
 
 
 class CallbackHandler(SimpleHTTPRequestHandler):
@@ -427,6 +460,11 @@ def parse_args():
         default=DEFAULT_REDIRECT_URI,
         help="OAuth redirect URI registered in your SoundCloud app",
     )
+    parser.add_argument(
+        "--reset-credentials",
+        action="store_true",
+        help="Ask for client_id and client_secret again and overwrite the local config",
+    )
     return parser.parse_args()
 
 
@@ -437,6 +475,7 @@ def main():
     print("Musicloud SoundCloud importer")
     print("I will ask only for SoundCloud app values I cannot derive.")
     print("I will not ask for your SoundCloud password.")
+    config = load_local_config()
 
     site_url = start_site()
     webbrowser.open(site_url)
@@ -449,18 +488,15 @@ def main():
     webbrowser.open("https://soundcloud.com/you/apps")
     input("Press Enter after the app has that redirect URL...")
 
-    say("Credentials")
-    client_id = input("client_id: ").strip()
-    client_secret = input("client_secret: ").strip()
-    if not client_id or not client_secret:
-        raise RuntimeError("client_id and client_secret are required.")
+    client_id, client_secret = get_credentials(config, reset=args.reset_credentials)
 
     token = get_oauth_token(client_id, client_secret, args.redirect_uri)
     downloaded, skipped = export_tracks(token, enable_downloads=False)
 
-    if downloaded == 0 and skipped > 0:
-        say("Downloads blocked")
-        print("SoundCloud found your tracks but exposed zero official download links.")
+    if skipped > 0:
+        say("Some downloads were blocked")
+        print(f"SoundCloud exposed official download links for {downloaded} track(s).")
+        print(f"It did not expose official download links for {skipped} track(s).")
         print("I can try one official fix: enable downloads on your own tracks, then retry.")
         print("This may make those tracks downloadable on SoundCloud too.")
         answer = input("Type YES to enable downloads and retry: ").strip()

@@ -14,6 +14,14 @@ start_musicloud_import.cmd
 
 That interactive Python script starts Musicloud, opens the SoundCloud app page, tells you the redirect URL to add, asks only for `client_id` and `client_secret`, runs OAuth, downloads official originals, and opens Musicloud again.
 
+The Python script saves `client_id` and `client_secret` locally in `.musicloud-soundcloud.json` so you do not need to paste them every run. That file is ignored by git.
+
+To replace saved credentials:
+
+```cmd
+py start_musicloud_import.py --reset-credentials
+```
+
 You can also run Python directly:
 
 ```cmd

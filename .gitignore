@@ -1,0 +1,9 @@
+.musicloud-soundcloud.json
+__pycache__/
+*.pyc
+site.pid
+logs/
+data/tracks.json
+data/skipped-tracks.json
+tracks/
+py
