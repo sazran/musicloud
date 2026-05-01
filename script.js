@@ -145,6 +145,26 @@ function inferTitleFromFile(file) {
   return file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
 }
 
+async function readApiResponse(response, action) {
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+  const payload = isJson ? await response.json().catch(() => ({})) : {};
+
+  if (response.ok && isJson) {
+    return payload;
+  }
+
+  if (response.status === 413) {
+    throw new Error("The server rejected this upload as too large. On tubamobile.com, nginx needs a larger client_max_body_size and /api must proxy to Musicloud API.");
+  }
+
+  if (!isJson) {
+    throw new Error(`Musicloud API is not reachable for ${action}. The server is returning the website page instead of API JSON.`);
+  }
+
+  throw new Error(payload.error || `${action} failed with HTTP ${response.status}.`);
+}
+
 function getFilteredTracks() {
   const query = searchInput.value.trim().toLowerCase();
   return tracks.filter((track) => {
@@ -446,11 +466,7 @@ document.addEventListener("click", (event) => {
 
     fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: "DELETE" })
       .then(async (response) => {
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload.error || `Delete failed with HTTP ${response.status}.`);
-        }
-        return payload;
+        return readApiResponse(response, "Delete");
       })
       .then(async () => {
         await loadExportedTracks();
@@ -535,10 +551,7 @@ uploadForm?.addEventListener("submit", async (event) => {
       method: "POST",
       body: formData
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(payload.error || `Upload failed with HTTP ${response.status}.`);
-    }
+    const payload = await readApiResponse(response, "Upload");
     uploadForm.reset();
     setUploadStatus(`Uploaded ${payload.title || "track"}.`);
     await loadExportedTracks();
@@ -548,7 +561,7 @@ uploadForm?.addEventListener("submit", async (event) => {
     renderTracks();
     syncPlayer();
   } catch (error) {
-    setUploadStatus(`${error.message} Start Musicloud with start_musicloud_api.cmd.`);
+    setUploadStatus(error.message);
   }
 });
 

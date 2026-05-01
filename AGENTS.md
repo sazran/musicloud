@@ -13,7 +13,9 @@ These rules are mandatory for any AI/coding agent working in this repository.
 - Local API work has started in `musicloud_api.py`. It serves the site, exposes `/api/tracks`, stream/download endpoints, and user-facing upload/edit/delete endpoints.
 - The Musicloud web user is treated as the library owner. Upload and delete are available from the UI without token language.
 - Track delete is intentionally destructive: `DELETE /api/tracks/<id>` removes the manifest entry and deletes that track's local audio/artwork files when they are not shared by another track. The UI must warn before calling it.
-- Run the local API-driven site with `start_musicloud_api.cmd`; default URL is `http://127.0.0.1:5174/`.
+- Run the local API-driven site on Windows with `start_musicloud_api.cmd`; default URL is `http://127.0.0.1:5174/`.
+- On Linux/server, `./startsite.sh` now starts `musicloud_api.py` on `127.0.0.1:5174`; `./stopsite.sh` stops it.
+- Live upload support requires nginx proxying `/api/` to `127.0.0.1:5174` and a large `client_max_body_size`; see `tools/nginx-tubamobile-api.md`.
 - Administrator/deployment tooling should live in scripts under `tools/` or root-level command scripts, not in the public user flow.
 - Latest local media verification: `data/tracks.json` lists 93 tracks, `data/skipped-tracks.json` lists 0 skipped tracks, and all 93 local audio files are present.
 - Latest live media verification before adding the final 2 manual tracks: the live server had 91 matching files in `/home/shlomia/musicloud/tracks`, no missing live URLs, and no Windows-path filenames in the live `tracks/` folder. After git pull/media sync, re-verify live has 93 tracks.

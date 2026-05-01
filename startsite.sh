@@ -5,7 +5,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
 
 HOST="${HOST:-127.0.0.1}"
-PORT="${PORT:-5173}"
+PORT="${PORT:-5174}"
 PID_FILE="${PID_FILE:-site.pid}"
 LOG_DIR="${LOG_DIR:-logs}"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/site.log}"
@@ -39,7 +39,12 @@ fi
 
 mkdir -p "$LOG_DIR"
 
-nohup "$PYTHON_BIN" -m http.server "$PORT" --bind "$HOST" >"$LOG_FILE" 2>&1 &
+if ! "$PYTHON_BIN" -c "import flask" >/dev/null 2>&1; then
+  echo "Flask is not installed. Run: $PYTHON_BIN -m pip install -r requirements.txt" >&2
+  exit 1
+fi
+
+nohup "$PYTHON_BIN" "$SCRIPT_DIR/musicloud_api.py" --host "$HOST" --port "$PORT" >"$LOG_FILE" 2>&1 &
 
 SITE_PID=$!
 echo "$SITE_PID" > "$PID_FILE"

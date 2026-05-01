@@ -22,7 +22,7 @@ MANIFEST_PATH = DATA_DIR / "tracks.json"
 
 APP_NAME = "Musicloud"
 DEFAULT_ARTIST = "sazran"
-MAX_UPLOAD_BYTES = int(os.environ.get("MUSICLOUD_MAX_UPLOAD_BYTES", str(2 * 1024 * 1024 * 1024)))
+MAX_UPLOAD_BYTES = int(os.environ.get("MUSICLOUD_MAX_UPLOAD_BYTES", str(5 * 1024 * 1024 * 1024)))
 ALLOWED_AUDIO_EXTENSIONS = {".wav", ".wave", ".aif", ".aiff", ".flac", ".mp3", ".aac", ".m4a", ".ogg"}
 ALLOWED_ARTWORK_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 

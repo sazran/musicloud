@@ -5,7 +5,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
 
 HOST="${HOST:-127.0.0.1}"
-PORT="${PORT:-5173}"
+PORT="${PORT:-5174}"
 PID_FILE="${PID_FILE:-site.pid}"
 STOPPED=0
 
@@ -28,7 +28,7 @@ if [ -f "$PID_FILE" ]; then
   rm -f "$PID_FILE"
 fi
 
-PIDS=$(pgrep -f "http.server $PORT --bind $HOST" 2>/dev/null || true)
+PIDS=$(pgrep -f "musicloud_api.py --host $HOST --port $PORT" 2>/dev/null || true)
 for PID in $PIDS; do
   if [ "$PID" != "$$" ]; then
     stop_pid "$PID"
