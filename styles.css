@@ -33,7 +33,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -245,6 +247,12 @@ button {
 .icon-btn.small {
   width: 34px;
   height: 34px;
+}
+
+.icon-btn.active {
+  color: #10141d;
+  border-color: transparent;
+  background: var(--accent);
 }
 
 .profile-btn {
@@ -556,6 +564,62 @@ button {
   white-space: pre-wrap;
 }
 
+.modal-backdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(6, 9, 15, 0.72);
+  backdrop-filter: blur(14px);
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.upload-dialog {
+  width: min(520px, 100%);
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #121827;
+  box-shadow: var(--shadow);
+}
+
+.upload-dialog h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.upload-form {
+  display: grid;
+  gap: 10px;
+}
+
+.upload-form label {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.file-input {
+  padding: 9px;
+}
+
+.file-input::file-selector-button {
+  min-height: 30px;
+  margin-right: 10px;
+  color: #10141d;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  font-weight: 900;
+}
+
 .section-head {
   display: flex;
   align-items: end;
@@ -666,12 +730,19 @@ button {
   background: rgba(255, 255, 255, 0.08);
   font-size: 0.84rem;
   font-weight: 800;
+  text-decoration: none;
 }
 
 .track-action.liked {
   color: var(--rose);
   border-color: rgba(255, 125, 183, 0.38);
   background: rgba(255, 125, 183, 0.1);
+}
+
+.track-action.danger {
+  color: #ffb4c8;
+  border-color: rgba(255, 125, 183, 0.34);
+  background: rgba(255, 125, 183, 0.09);
 }
 
 .waveform {

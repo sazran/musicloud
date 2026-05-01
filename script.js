@@ -39,6 +39,14 @@ const commandPreview = document.querySelector("#commandPreview");
 const importStatus = document.querySelector("#importStatus");
 const libraryStats = document.querySelector("#libraryStats");
 const refreshLibraryButton = document.querySelector("#refreshLibraryButton");
+const openUploadButton = document.querySelector("#openUploadButton");
+const openUploadTopButton = document.querySelector("#openUploadTopButton");
+const closeUploadButton = document.querySelector("#closeUploadButton");
+const uploadModal = document.querySelector("#uploadModal");
+const uploadForm = document.querySelector("#uploadForm");
+const audioFileInput = document.querySelector("#audioFileInput");
+const uploadTitleInput = document.querySelector("#uploadTitleInput");
+const uploadStatus = document.querySelector("#uploadStatus");
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -65,6 +73,7 @@ function formatCount(value) {
 
 function normalizeTrack(track, index) {
   return {
+    id: track.id || track.soundcloudId || `${index}`,
     title: track.title || `Untitled ${index + 1}`,
     artist: track.artist || "Musicloud",
     genre: (track.genre || "cloudcast").toLowerCase(),
@@ -74,8 +83,11 @@ function normalizeTrack(track, index) {
     likes: Number(track.likes) || 0,
     cover: track.cover || `cover-${["one", "two", "three", "four", "five"][index % 5]}`,
     artwork: track.artwork || "",
-    src: track.src || "",
+    src: track.streamUrl || track.src || "",
+    originalSrc: track.src || "",
+    downloadUrl: track.downloadUrl || track.src || "",
     soundcloudUrl: track.soundcloudUrl || "",
+    source: track.source || "",
     pattern: track.pattern || waveformPatterns[index % waveformPatterns.length]
   };
 }
@@ -112,6 +124,25 @@ function getAuthCommand() {
 
 function getImportCommand() {
   return "py start_musicloud_import.py";
+}
+
+function setUploadOpen(isOpen) {
+  if (!uploadModal) return;
+  uploadModal.hidden = !isOpen;
+  if (isOpen) {
+    window.setTimeout(() => audioFileInput?.focus(), 0);
+  }
+}
+
+function setUploadStatus(message) {
+  if (uploadStatus) {
+    uploadStatus.textContent = message;
+  }
+}
+
+function inferTitleFromFile(file) {
+  if (!file || !file.name) return "";
+  return file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
 }
 
 function getFilteredTracks() {
@@ -185,6 +216,16 @@ function renderTracks() {
                   <button class="track-action" type="button" data-like>
                     <span data-lucide="heart"></span>
                     ${formatCount(track.likes)}
+                  </button>
+                  ${track.downloadUrl ? `
+                    <a class="track-action" href="${escapeHtml(track.downloadUrl)}" download>
+                      <span data-lucide="download"></span>
+                      Download
+                    </a>
+                  ` : ""}
+                  <button class="track-action danger" type="button" data-delete-track="${trackIndex}">
+                    <span data-lucide="trash-2"></span>
+                    Delete
                   </button>
                 </div>
               </div>
@@ -366,6 +407,7 @@ document.addEventListener("click", (event) => {
   const waveform = event.target.closest(".waveform");
   const likeButton = event.target.closest("[data-like]");
   const filterButton = event.target.closest("[data-filter]");
+  const deleteButton = event.target.closest("[data-delete-track]");
 
   if (playButton) {
     const trackIndex = Number(playButton.dataset.track);
@@ -393,6 +435,35 @@ document.addEventListener("click", (event) => {
       button.classList.toggle("active", button === filterButton);
     });
     renderTracks();
+  }
+
+  if (deleteButton) {
+    const trackIndex = Number(deleteButton.dataset.deleteTrack);
+    const track = tracks[trackIndex];
+    if (!track) return;
+    const confirmed = window.confirm(`Delete "${track.title}" from Musicloud?\n\nThis removes it from the site and deletes its local audio/artwork files. This cannot be undone.`);
+    if (!confirmed) return;
+
+    fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: "DELETE" })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || `Delete failed with HTTP ${response.status}.`);
+        }
+        return payload;
+      })
+      .then(async () => {
+        await loadExportedTracks();
+        activeTrack = Math.min(activeTrack, Math.max(0, tracks.length - 1));
+        renderFilters();
+        renderQueue();
+        renderLibraryStats();
+        renderTracks();
+        syncPlayer();
+      })
+      .catch((error) => {
+        window.alert(error.message);
+      });
   }
 });
 
@@ -430,6 +501,55 @@ progressRange.addEventListener("input", () => {
   }
   syncPlayer();
   renderTracks();
+});
+
+openUploadButton?.addEventListener("click", () => setUploadOpen(true));
+openUploadTopButton?.addEventListener("click", () => setUploadOpen(true));
+closeUploadButton?.addEventListener("click", () => setUploadOpen(false));
+
+uploadModal?.addEventListener("click", (event) => {
+  if (event.target === uploadModal) {
+    setUploadOpen(false);
+  }
+});
+
+audioFileInput?.addEventListener("change", () => {
+  const file = audioFileInput.files?.[0];
+  if (file && uploadTitleInput && !uploadTitleInput.value.trim()) {
+    uploadTitleInput.value = inferTitleFromFile(file);
+  }
+});
+
+uploadForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!audioFileInput?.files?.length) {
+    setUploadStatus("Choose an audio file first.");
+    return;
+  }
+
+  const formData = new FormData(uploadForm);
+  setUploadStatus("Uploading...");
+
+  try {
+    const response = await fetch("/api/tracks", {
+      method: "POST",
+      body: formData
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `Upload failed with HTTP ${response.status}.`);
+    }
+    uploadForm.reset();
+    setUploadStatus(`Uploaded ${payload.title || "track"}.`);
+    await loadExportedTracks();
+    renderFilters();
+    renderQueue();
+    renderLibraryStats();
+    renderTracks();
+    syncPlayer();
+  } catch (error) {
+    setUploadStatus(`${error.message} Start Musicloud with start_musicloud_api.cmd.`);
+  }
 });
 
 buildAuthButton.addEventListener("click", async () => {
@@ -511,22 +631,29 @@ audio.addEventListener("ended", () => {
 });
 
 async function loadExportedTracks() {
-  try {
-    const response = await fetch("data/tracks.json", { cache: "no-store" });
-    if (!response.ok) return;
-    const manifest = await response.json();
-    if (!Array.isArray(manifest.tracks) || manifest.tracks.length === 0) return;
-    manifestInfo = manifest;
-    tracks = manifest.tracks.map(normalizeTrack);
-    activeTrack = 0;
-    currentSecond = 0;
-    if (importStatus) {
-      importStatus.textContent = `${tracks.length} imported tracks loaded.`;
+  const sources = ["api/tracks", "data/tracks.json"];
+  for (const source of sources) {
+    try {
+      const response = await fetch(source, { cache: "no-store" });
+      if (!response.ok) continue;
+      const manifest = await response.json();
+      if (!Array.isArray(manifest.tracks)) continue;
+      manifestInfo = manifest;
+      tracks = manifest.tracks.map(normalizeTrack);
+      activeTrack = 0;
+      currentSecond = 0;
+      if (importStatus) {
+        const mode = source.startsWith("api/") ? "API" : "manifest";
+        importStatus.textContent = `${tracks.length} tracks loaded from ${mode}.`;
+      }
+      return;
+    } catch {
+      continue;
     }
-  } catch {
-    tracks = [];
-    manifestInfo = null;
   }
+
+  tracks = [];
+  manifestInfo = null;
 }
 
 async function init() {

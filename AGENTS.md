@@ -9,13 +9,23 @@ These rules are mandatory for any AI/coding agent working in this repository.
 - Do not deploy code directly to the server unless the user explicitly asks.
 - Use the live server only for read-only verification unless the user explicitly approves a remote change.
 - The live site is `https://tubamobile.com/`.
-- Latest media verification: `data/tracks.json` lists 91 imported SoundCloud tracks, the live server has all 91 matching files in `/home/shlomia/musicloud/tracks`, and there are no Windows-path filenames in the live `tracks/` folder.
-- Latest artwork status: 53 SoundCloud artwork images were downloaded locally into ignored `artwork/` files and `data/tracks.json` now points at local `artwork/...jpg` paths. 38 tracks have no SoundCloud artwork and use generated CSS covers.
-- Generated SoundCloud media is separate from git and lives in ignored local paths:
-  - `tracks/`
-  - `artwork/`
+- Mission: build and maintain Musicloud, a SoundCloud-style personal music site for Sazran, backed by imported SoundCloud tracks and locally hosted artwork/audio.
+- Local API work has started in `musicloud_api.py`. It serves the site, exposes `/api/tracks`, stream/download endpoints, and user-facing upload/edit/delete endpoints.
+- The Musicloud web user is treated as the library owner. Upload and delete are available from the UI without token language.
+- Track delete is intentionally destructive: `DELETE /api/tracks/<id>` removes the manifest entry and deletes that track's local audio/artwork files when they are not shared by another track. The UI must warn before calling it.
+- Run the local API-driven site with `start_musicloud_api.cmd`; default URL is `http://127.0.0.1:5174/`.
+- Administrator/deployment tooling should live in scripts under `tools/` or root-level command scripts, not in the public user flow.
+- Latest local media verification: `data/tracks.json` lists 93 tracks, `data/skipped-tracks.json` lists 0 skipped tracks, and all 93 local audio files are present.
+- Latest live media verification before adding the final 2 manual tracks: the live server had 91 matching files in `/home/shlomia/musicloud/tracks`, no missing live URLs, and no Windows-path filenames in the live `tracks/` folder. After git pull/media sync, re-verify live has 93 tracks.
+- Latest artwork status: 53 SoundCloud artwork images were downloaded locally into ignored `artwork/` files and `data/tracks.json` now points at local `artwork/...jpg` paths. 40 tracks have no SoundCloud artwork and use generated CSS covers.
+- Git should track JSON manifests and code:
   - `data/tracks.json`
   - `data/skipped-tracks.json`
+  - site code/scripts/docs
+- Git should ignore heavy binary media only:
+  - audio files under `tracks/`
+  - image files under `artwork/`
+  - `.musicloud-soundcloud.json`
 - `sync_musicloud_media.py` is for media-only sync and must never delete remote media.
 
 ## Destructive Operations
@@ -37,12 +47,16 @@ Destructive commands include, but are not limited to:
 
 Git is responsible for source-controlled site/code files.
 
-Generated media and import output are not deployed through git:
+Generated binary media is not deployed through git:
 
-- `tracks/`
+- audio files under `tracks/`
+- image files under `artwork/`
+- `.musicloud-soundcloud.json`
+
+JSON manifests are source-controlled:
+
 - `data/tracks.json`
 - `data/skipped-tracks.json`
-- `.musicloud-soundcloud.json`
 
 Media sync scripts must be non-destructive:
 
