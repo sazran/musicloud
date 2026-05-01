@@ -9,6 +9,7 @@ PORT="${PORT:-5174}"
 PID_FILE="${PID_FILE:-site.pid}"
 LOG_DIR="${LOG_DIR:-logs}"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/site.log}"
+VENV_DIR="${VENV_DIR:-.venv}"
 
 find_python() {
   for NAME in python python3 py; do
@@ -31,17 +32,29 @@ if [ -f "$PID_FILE" ]; then
   rm -f "$PID_FILE"
 fi
 
-PYTHON_BIN=$(find_python || true)
-if [ -z "$PYTHON_BIN" ]; then
+BASE_PYTHON=$(find_python || true)
+if [ -z "$BASE_PYTHON" ]; then
   echo "Python was not found. Install Python or start a static server manually." >&2
   exit 1
 fi
 
 mkdir -p "$LOG_DIR"
 
+if [ ! -x "$VENV_DIR/bin/python" ]; then
+  echo "Creating Python virtual environment in $SCRIPT_DIR/$VENV_DIR"
+  if ! "$BASE_PYTHON" -m venv "$VENV_DIR" >/dev/null 2>&1; then
+    echo "Could not create a virtual environment." >&2
+    echo "On Ubuntu, run: sudo apt install python3-venv" >&2
+    echo "Then run ./startsite.sh again." >&2
+    exit 1
+  fi
+fi
+
+PYTHON_BIN="$SCRIPT_DIR/$VENV_DIR/bin/python"
+
 if ! "$PYTHON_BIN" -c "import flask" >/dev/null 2>&1; then
-  echo "Flask is not installed. Run: $PYTHON_BIN -m pip install -r requirements.txt" >&2
-  exit 1
+  echo "Installing Musicloud Python dependencies into $SCRIPT_DIR/$VENV_DIR"
+  "$PYTHON_BIN" -m pip install -r requirements.txt
 fi
 
 nohup "$PYTHON_BIN" "$SCRIPT_DIR/musicloud_api.py" --host "$HOST" --port "$PORT" >"$LOG_FILE" 2>&1 &

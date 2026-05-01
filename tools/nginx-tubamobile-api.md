@@ -11,10 +11,16 @@ From `/home/shlomia/musicloud`:
 
 ```sh
 git pull
-python3 -m pip install -r requirements.txt
 ./stopsite.sh
 ./startsite.sh
 curl -I http://127.0.0.1:5174/api/health
+```
+
+`./startsite.sh` creates `.venv` and installs `requirements.txt` there. If Ubuntu says venv is missing, run:
+
+```sh
+sudo apt install python3-venv
+./startsite.sh
 ```
 
 The `curl` should return JSON headers from Flask, not the static `index.html`.
