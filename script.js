@@ -55,6 +55,12 @@ const loginEmailInput = document.querySelector("#loginEmailInput");
 const loginPasswordInput = document.querySelector("#loginPasswordInput");
 const loginSubmitButton = document.querySelector("#loginSubmitButton");
 const loginStatus = document.querySelector("#loginStatus");
+const accountModal = document.querySelector("#accountModal");
+const closeAccountButton = document.querySelector("#closeAccountButton");
+const accountEmailLabel = document.querySelector("#accountEmailLabel");
+const accountUploadButton = document.querySelector("#accountUploadButton");
+const accountImportButton = document.querySelector("#accountImportButton");
+const accountLogoutButton = document.querySelector("#accountLogoutButton");
 const openUploadButton = document.querySelector("#openUploadButton");
 const openUploadTopButton = document.querySelector("#openUploadTopButton");
 const closeUploadButton = document.querySelector("#closeUploadButton");
@@ -155,6 +161,19 @@ function setLoginOpen(isOpen) {
   }
 }
 
+function setAccountOpen(isOpen) {
+  if (!accountModal) return;
+  if (isOpen && !isOwner()) {
+    setLoginOpen(true);
+    return;
+  }
+  accountModal.hidden = !isOpen;
+  if (isOpen) {
+    syncAuthUi();
+    window.setTimeout(() => closeAccountButton?.focus(), 0);
+  }
+}
+
 function setLoginStatus(message) {
   if (loginStatus) {
     loginStatus.textContent = message;
@@ -169,11 +188,14 @@ function syncAuthUi() {
   if (authButton) {
     authButton.setAttribute("aria-label", isOwner() ? "Owner signed in" : "Sign in");
   }
+  if (accountEmailLabel) {
+    accountEmailLabel.textContent = sessionInfo.email || (isOwner() ? "Owner signed in" : "Listener");
+  }
   mobileAuthLabels.forEach((label) => {
     label.textContent = isOwner() ? "Sazran" : "Sign in";
   });
   mobileAuthButtons.forEach((button) => {
-    button.setAttribute("aria-label", isOwner() ? "Owner tools" : "Sign in");
+    button.setAttribute("aria-label", isOwner() ? "Open Sazran account" : "Sign in");
   });
   if (loginTitle) {
     loginTitle.textContent = sessionInfo.setupRequired ? "Create owner account" : "Sign in";
@@ -188,6 +210,13 @@ function syncAuthUi() {
   if (window.lucide) {
     window.lucide.createIcons();
   }
+}
+
+async function logoutOwner() {
+  await fetch("/api/logout", { method: "POST" }).catch(() => {});
+  setAccountOpen(false);
+  await loadSession();
+  renderTracks();
 }
 
 async function loadSession() {
@@ -618,7 +647,7 @@ mobileAuthButtons.forEach((button) => {
       setLoginOpen(true);
       return;
     }
-    document.querySelector("#import-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setAccountOpen(true);
   });
 });
 
@@ -634,9 +663,7 @@ mobileUploadButtons.forEach((button) => {
 });
 
 logoutButton?.addEventListener("click", async () => {
-  await fetch("/api/logout", { method: "POST" }).catch(() => {});
-  await loadSession();
-  renderTracks();
+  await logoutOwner();
 });
 
 closeLoginButton?.addEventListener("click", () => setLoginOpen(false));
@@ -645,6 +672,28 @@ loginModal?.addEventListener("click", (event) => {
   if (event.target === loginModal) {
     setLoginOpen(false);
   }
+});
+
+closeAccountButton?.addEventListener("click", () => setAccountOpen(false));
+
+accountModal?.addEventListener("click", (event) => {
+  if (event.target === accountModal) {
+    setAccountOpen(false);
+  }
+});
+
+accountUploadButton?.addEventListener("click", () => {
+  setAccountOpen(false);
+  setUploadOpen(true);
+});
+
+accountImportButton?.addEventListener("click", () => {
+  setAccountOpen(false);
+  document.querySelector("#import-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+accountLogoutButton?.addEventListener("click", async () => {
+  await logoutOwner();
 });
 
 loginForm?.addEventListener("submit", async (event) => {

@@ -23,7 +23,9 @@
           <span data-lucide="upload"></span>
         </button>
         <button class="profile-btn mobile-auth-btn" type="button" aria-label="Sign in" data-mobile-auth>
-          <span class="avatar mini avatar-gradient-one"></span>
+          <span class="avatar mini avatar-gradient-one account-avatar">
+            <span data-lucide="user-round"></span>
+          </span>
           <span data-mobile-auth-label>Sign in</span>
         </button>
       </div>
@@ -257,6 +259,45 @@
           </button>
           <p id="loginStatus" class="import-status">Owner tools require sign in.</p>
         </form>
+      </section>
+    </div>
+
+    <div id="accountModal" class="modal-backdrop" hidden>
+      <section class="upload-dialog account-dialog" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h2 id="accountTitle">Sazran</h2>
+          </div>
+          <button id="closeAccountButton" class="icon-btn small" type="button" aria-label="Close account">
+            <span data-lucide="x"></span>
+          </button>
+        </div>
+
+        <div class="account-summary">
+          <span class="avatar account-avatar avatar-gradient-one">
+            <span data-lucide="user-round"></span>
+          </span>
+          <div>
+            <h3 id="accountNameLabel">Sazran</h3>
+            <p id="accountEmailLabel">Owner signed in</p>
+          </div>
+        </div>
+
+        <div class="account-actions">
+          <button id="accountUploadButton" class="secondary-btn" type="button">
+            <span data-lucide="upload"></span>
+            Upload track
+          </button>
+          <button id="accountImportButton" class="secondary-btn" type="button">
+            <span data-lucide="folder-input"></span>
+            Import studio
+          </button>
+          <button id="accountLogoutButton" class="secondary-btn danger-action" type="button">
+            <span data-lucide="log-out"></span>
+            Log out
+          </button>
+        </div>
       </section>
     </div>
 

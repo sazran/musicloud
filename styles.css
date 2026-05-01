@@ -264,6 +264,7 @@ body:not(.owner-session) .owner-only {
   gap: 8px;
   min-height: 42px;
   padding: 0 12px 0 6px;
+  color: var(--ink);
   border-radius: 8px;
   font-weight: 800;
 }
@@ -278,6 +279,18 @@ body:not(.owner-session) .owner-only {
 .avatar.mini {
   width: 32px;
   height: 32px;
+}
+
+.account-avatar {
+  display: inline-grid;
+  place-items: center;
+  color: #10141d;
+}
+
+.account-avatar svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.5;
 }
 
 .avatar-gradient-one { background: linear-gradient(135deg, #7ee7c8, #8fa8ff); }
@@ -607,6 +620,60 @@ body:not(.owner-session) .owner-only {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.account-dialog {
+  max-width: 440px;
+}
+
+.account-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.account-summary .avatar {
+  width: 52px;
+  height: 52px;
+}
+
+.account-summary .account-avatar svg {
+  width: 23px;
+  height: 23px;
+}
+
+.account-summary h3,
+.account-summary p {
+  margin: 0;
+}
+
+.account-summary p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.account-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.account-actions .secondary-btn {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.danger-action {
+  color: #ffcad8;
+  border-color: rgba(255, 125, 183, 0.34);
+  background: rgba(255, 125, 183, 0.1);
 }
 
 .file-input {
@@ -1199,7 +1266,8 @@ input[type="range"] {
   }
 
   .mobile-auth-btn {
-    padding-right: 10px;
+    min-width: 108px;
+    padding: 0 10px 0 6px;
   }
 
   .app-shell {
@@ -1479,8 +1547,9 @@ input[type="range"] {
     right: 14px;
     z-index: 26;
     display: inline-grid !important;
-    width: 40px;
-    padding: 0;
+    width: auto;
+    min-width: 108px;
+    padding: 0 10px 0 6px;
   }
 
   .mobile-nav [data-mobile-auth] {
@@ -1488,14 +1557,18 @@ input[type="range"] {
   }
 
   .mobile-brand span:last-child {
-    max-width: 34vw;
+    max-width: 40vw;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .mobile-auth-btn span:last-child {
-    display: none;
+    display: inline;
+    max-width: 68px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .hero h1 {
