@@ -174,11 +174,8 @@
                 <p class="eyebrow">Signal garden</p>
                 <h2>Drifting through the feed</h2>
               </div>
-              <div class="filter-tabs" role="tablist" aria-label="Track filter">
+              <div id="filterTabs" class="filter-tabs" role="tablist" aria-label="Track filter">
                 <button class="tab active" type="button" data-filter="all">All</button>
-                <button class="tab" type="button" data-filter="electronic">Electronic</button>
-                <button class="tab" type="button" data-filter="hiphop">Hip hop</button>
-                <button class="tab" type="button" data-filter="indie">Indie</button>
               </div>
             </div>
 
@@ -188,34 +185,11 @@
           <aside class="right-rail">
             <section class="panel">
               <div class="panel-head">
-                <h2>Artists rising</h2>
-                <button class="text-btn" type="button">See all</button>
+                <h2>Library</h2>
+                <button id="refreshLibraryButton" class="text-btn" type="button">Refresh</button>
               </div>
-              <div class="artist-list">
-                <article class="artist-row">
-                  <span class="avatar avatar-gradient-two"></span>
-                  <div>
-                    <h3>Mira Vale</h3>
-                    <p>42.8K followers</p>
-                  </div>
-                  <button class="follow-btn" type="button">Follow</button>
-                </article>
-                <article class="artist-row">
-                  <span class="avatar avatar-gradient-three"></span>
-                  <div>
-                    <h3>Low Lanterns</h3>
-                    <p>18.2K followers</p>
-                  </div>
-                  <button class="follow-btn" type="button">Follow</button>
-                </article>
-                <article class="artist-row">
-                  <span class="avatar avatar-gradient-four"></span>
-                  <div>
-                    <h3>Juno Static</h3>
-                    <p>61.4K followers</p>
-                  </div>
-                  <button class="follow-btn" type="button">Follow</button>
-                </article>
+              <div id="libraryStats" class="artist-list">
+                <p class="import-status">No imported tracks loaded yet.</p>
               </div>
             </section>
 

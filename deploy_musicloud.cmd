@@ -12,4 +12,6 @@ echo Generated media should be synced with:
 echo.
 echo   sync_musicloud_media.cmd
 echo.
+echo Safety policy: see AGENTS.md
+echo.
 call sync_musicloud_media.cmd %*

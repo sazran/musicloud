@@ -1,62 +1,13 @@
-const fallbackTracks = [
-  {
-    title: "Cloudline Signal",
-    artist: "Mira Vale",
-    genre: "electronic",
-    duration: 213,
-    plays: "128K",
-    comments: 94,
-    likes: 8200,
-    cover: "cover-one",
-    pattern: [22, 38, 54, 30, 76, 46, 64, 28]
-  },
-  {
-    title: "Window Seat Freestyle",
-    artist: "Northline",
-    genre: "hiphop",
-    duration: 188,
-    plays: "76K",
-    comments: 51,
-    likes: 3900,
-    cover: "cover-two",
-    pattern: [36, 68, 44, 82, 34, 58, 72, 40]
-  },
-  {
-    title: "Moonroom Cinema",
-    artist: "Low Lanterns",
-    genre: "indie",
-    duration: 244,
-    plays: "209K",
-    comments: 138,
-    likes: 11800,
-    cover: "cover-three",
-    pattern: [18, 30, 46, 62, 50, 34, 70, 56]
-  },
-  {
-    title: "Chrome Weather",
-    artist: "Juno Static",
-    genre: "electronic",
-    duration: 231,
-    plays: "344K",
-    comments: 211,
-    likes: 21200,
-    cover: "cover-four",
-    pattern: [60, 42, 78, 36, 88, 50, 70, 44]
-  },
-  {
-    title: "Satellite Anthem",
-    artist: "The Halftones",
-    genre: "indie",
-    duration: 201,
-    plays: "91K",
-    comments: 73,
-    likes: 5400,
-    cover: "cover-five",
-    pattern: [28, 74, 40, 66, 48, 80, 36, 58]
-  }
+const waveformPatterns = [
+  [22, 38, 54, 30, 76, 46, 64, 28],
+  [36, 68, 44, 82, 34, 58, 72, 40],
+  [18, 30, 46, 62, 50, 34, 70, 56],
+  [60, 42, 78, 36, 88, 50, 70, 44],
+  [28, 74, 40, 66, 48, 80, 36, 58]
 ];
 
-let tracks = [...fallbackTracks];
+let tracks = [];
+let manifestInfo = null;
 let activeFilter = "all";
 let activeTrack = 0;
 let isPlaying = false;
@@ -67,6 +18,7 @@ audio.preload = "metadata";
 
 const trackList = document.querySelector("#trackList");
 const queueList = document.querySelector("#queueList");
+const filterTabs = document.querySelector("#filterTabs");
 const searchInput = document.querySelector("#searchInput");
 const playerTitle = document.querySelector("#playerTitle");
 const playerArtist = document.querySelector("#playerArtist");
@@ -85,6 +37,8 @@ const copyImportCommand = document.querySelector("#copyImportCommand");
 const copyRefreshCommand = document.querySelector("#copyRefreshCommand");
 const commandPreview = document.querySelector("#commandPreview");
 const importStatus = document.querySelector("#importStatus");
+const libraryStats = document.querySelector("#libraryStats");
+const refreshLibraryButton = document.querySelector("#refreshLibraryButton");
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -122,7 +76,7 @@ function normalizeTrack(track, index) {
     artwork: track.artwork || "",
     src: track.src || "",
     soundcloudUrl: track.soundcloudUrl || "",
-    pattern: track.pattern || fallbackTracks[index % fallbackTracks.length].pattern
+    pattern: track.pattern || waveformPatterns[index % waveformPatterns.length]
   };
 }
 
@@ -167,6 +121,20 @@ function getFilteredTracks() {
     const matchesSearch = `${track.title} ${track.artist} ${track.genre}`.toLowerCase().includes(query);
     return matchesFilter && matchesSearch;
   });
+}
+
+function renderFilters() {
+  const genres = Array.from(new Set(tracks.map((track) => track.genre).filter(Boolean))).sort();
+  if (activeFilter !== "all" && !genres.includes(activeFilter)) {
+    activeFilter = "all";
+  }
+
+  filterTabs.innerHTML = [
+    `<button class="tab ${activeFilter === "all" ? "active" : ""}" type="button" data-filter="all">All</button>`,
+    ...genres.map((genre) => (
+      `<button class="tab ${activeFilter === genre ? "active" : ""}" type="button" data-filter="${escapeHtml(genre)}">${escapeHtml(genre)}</button>`
+    ))
+  ].join("");
 }
 
 function getTrackDuration(track) {
@@ -231,15 +199,50 @@ function renderTracks() {
           </article>
         `;
       }).join("")
-    : `<div class="panel"><h2>No tracks found</h2><p>Try another search or genre.</p></div>`;
+    : `<div class="panel"><h2>No imported tracks found</h2><p>Run the SoundCloud importer or clear the current search/filter.</p></div>`;
 
   if (window.lucide) {
     window.lucide.createIcons();
   }
 }
 
+function renderLibraryStats() {
+  if (!libraryStats) return;
+  const skipped = manifestInfo ? Number(manifestInfo.skipped || 0) : 0;
+  const downloaded = manifestInfo ? Number(manifestInfo.downloaded || tracks.length) : tracks.length;
+  const genres = new Set(tracks.map((track) => track.genre).filter(Boolean));
+  const totalSeconds = tracks.reduce((sum, track) => sum + getTrackDuration(track), 0);
+  const totalHours = totalSeconds / 3600;
+
+  libraryStats.innerHTML = tracks.length
+    ? `
+      <article class="artist-row">
+        <span class="avatar avatar-gradient-two"></span>
+        <div>
+          <h3>${formatCount(downloaded)} tracks</h3>
+          <p>${totalHours.toFixed(1)} hours loaded</p>
+        </div>
+      </article>
+      <article class="artist-row">
+        <span class="avatar avatar-gradient-three"></span>
+        <div>
+          <h3>${genres.size || 1} genres</h3>
+          <p>${skipped} skipped by SoundCloud</p>
+        </div>
+      </article>
+      <article class="artist-row">
+        <span class="avatar avatar-gradient-four"></span>
+        <div>
+          <h3>Sazran</h3>
+          <p>Imported SoundCloud archive</p>
+        </div>
+      </article>
+    `
+    : `<p class="import-status">No imported tracks loaded yet.</p>`;
+}
+
 function renderQueue() {
-  queueList.innerHTML = tracks.slice(0, 4).map((track, index) => `
+  queueList.innerHTML = tracks.length ? tracks.slice(0, 4).map((track, index) => `
     <li>
       <span class="queue-index">${index + 1}</span>
       <div>
@@ -247,11 +250,25 @@ function renderQueue() {
         <p>${escapeHtml(track.artist)}</p>
       </div>
     </li>
-  `).join("");
+  `).join("") : `<li><span class="queue-index">0</span><div><h3>No tracks loaded</h3><p>Run the importer</p></div></li>`;
 }
 
 function syncPlayer() {
   const track = tracks[activeTrack];
+  if (!track) {
+    playerTitle.textContent = "No track selected";
+    playerArtist.textContent = "Musicloud";
+    playerArt.className = "mini-cover cover-one";
+    playerArt.style.backgroundImage = "";
+    progressRange.value = "0";
+    currentTime.textContent = "0:00";
+    durationTime.textContent = "0:00";
+    playerToggle.innerHTML = `<span data-lucide="play"></span>`;
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+    return;
+  }
   playerTitle.textContent = track.title;
   playerArtist.textContent = track.artist;
   if (track.artwork) {
@@ -273,7 +290,7 @@ function syncPlayer() {
 
 function loadAudioForActiveTrack(startAt = 0) {
   const track = tracks[activeTrack];
-  if (!track.src) return false;
+  if (!track || !track.src) return false;
   const currentSrc = audio.getAttribute("data-track-src");
   if (currentSrc !== track.src) {
     audio.src = track.src;
@@ -290,6 +307,7 @@ function loadAudioForActiveTrack(startAt = 0) {
 }
 
 function playTrack(trackIndex, startAt = 0) {
+  if (!tracks.length || !tracks[trackIndex]) return;
   activeTrack = trackIndex;
   currentSecond = startAt;
   isPlaying = true;
@@ -310,7 +328,7 @@ function playTrack(trackIndex, startAt = 0) {
 function startTimer() {
   window.clearInterval(timerId);
   timerId = window.setInterval(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || !tracks.length) return;
     const track = tracks[activeTrack];
     currentSecond += 1;
     if (currentSecond >= getTrackDuration(track)) {
@@ -323,6 +341,7 @@ function startTimer() {
 }
 
 function togglePlay() {
+  if (!tracks.length) return;
   isPlaying = !isPlaying;
   if (isPlaying) {
     if (loadAudioForActiveTrack(currentSecond)) {
@@ -380,9 +399,12 @@ document.addEventListener("click", (event) => {
 searchInput.addEventListener("input", renderTracks);
 
 playerToggle.addEventListener("click", togglePlay);
-featuredPlay.addEventListener("click", () => playTrack(0));
+featuredPlay.addEventListener("click", () => {
+  if (tracks.length) playTrack(0);
+});
 
 document.querySelector("[data-prev]").addEventListener("click", () => {
+  if (!tracks.length) return;
   activeTrack = (activeTrack - 1 + tracks.length) % tracks.length;
   currentSecond = 0;
   if (isPlaying) playTrack(activeTrack);
@@ -391,6 +413,7 @@ document.querySelector("[data-prev]").addEventListener("click", () => {
 });
 
 document.querySelector("[data-next]").addEventListener("click", () => {
+  if (!tracks.length) return;
   activeTrack = (activeTrack + 1) % tracks.length;
   currentSecond = 0;
   if (isPlaying) playTrack(activeTrack);
@@ -400,6 +423,7 @@ document.querySelector("[data-next]").addEventListener("click", () => {
 
 progressRange.addEventListener("input", () => {
   const track = tracks[activeTrack];
+  if (!track) return;
   currentSecond = Math.floor((Number(progressRange.value) / 100) * getTrackDuration(track));
   if (track.src && audio.src) {
     audio.currentTime = currentSecond;
@@ -449,14 +473,25 @@ copyImportCommand.addEventListener("click", async () => {
 });
 
 copyRefreshCommand.addEventListener("click", async () => {
-  const command = "http://127.0.0.1:5173/";
+  const command = window.location.origin + "/";
   showCommand(command);
   await copyText(command);
 });
 
+refreshLibraryButton.addEventListener("click", async () => {
+  await loadExportedTracks();
+  renderFilters();
+  renderQueue();
+  renderLibraryStats();
+  renderTracks();
+  syncPlayer();
+});
+
 audio.addEventListener("loadedmetadata", () => {
+  if (!tracks[activeTrack]) return;
   tracks[activeTrack].duration = Math.round(audio.duration);
   syncPlayer();
+  renderLibraryStats();
   renderTracks();
 });
 
@@ -467,6 +502,7 @@ audio.addEventListener("timeupdate", () => {
 });
 
 audio.addEventListener("ended", () => {
+  if (!tracks.length) return;
   activeTrack = (activeTrack + 1) % tracks.length;
   currentSecond = 0;
   if (isPlaying) {
@@ -480,17 +516,24 @@ async function loadExportedTracks() {
     if (!response.ok) return;
     const manifest = await response.json();
     if (!Array.isArray(manifest.tracks) || manifest.tracks.length === 0) return;
+    manifestInfo = manifest;
     tracks = manifest.tracks.map(normalizeTrack);
     activeTrack = 0;
     currentSecond = 0;
+    if (importStatus) {
+      importStatus.textContent = `${tracks.length} imported tracks loaded.`;
+    }
   } catch {
-    tracks = [...fallbackTracks];
+    tracks = [];
+    manifestInfo = null;
   }
 }
 
 async function init() {
   await loadExportedTracks();
+  renderFilters();
   renderQueue();
+  renderLibraryStats();
   renderTracks();
   syncPlayer();
   if (window.lucide) {

@@ -7,3 +7,5 @@ data/tracks.json
 data/skipped-tracks.json
 tracks/
 py
+/musicloud
+/musicloud.pub
