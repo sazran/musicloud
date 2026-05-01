@@ -6,6 +6,7 @@ logs/
 data/tracks.json
 data/skipped-tracks.json
 tracks/
+artwork/
 py
 /musicloud
 /musicloud.pub

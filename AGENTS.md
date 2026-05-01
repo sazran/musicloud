@@ -9,8 +9,11 @@ These rules are mandatory for any AI/coding agent working in this repository.
 - Do not deploy code directly to the server unless the user explicitly asks.
 - Use the live server only for read-only verification unless the user explicitly approves a remote change.
 - The live site is `https://tubamobile.com/`.
+- Latest media verification: `data/tracks.json` lists 91 imported SoundCloud tracks, the live server has all 91 matching files in `/home/shlomia/musicloud/tracks`, and there are no Windows-path filenames in the live `tracks/` folder.
+- Latest artwork status: 53 SoundCloud artwork images were downloaded locally into ignored `artwork/` files and `data/tracks.json` now points at local `artwork/...jpg` paths. 38 tracks have no SoundCloud artwork and use generated CSS covers.
 - Generated SoundCloud media is separate from git and lives in ignored local paths:
   - `tracks/`
+  - `artwork/`
   - `data/tracks.json`
   - `data/skipped-tracks.json`
 - `sync_musicloud_media.py` is for media-only sync and must never delete remote media.

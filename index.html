@@ -108,6 +108,44 @@
           </div>
         </section>
 
+        <section class="content-grid">
+          <div class="feed-column">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Signal garden</p>
+                <h2>Drifting through the feed</h2>
+              </div>
+              <div id="filterTabs" class="filter-tabs" role="tablist" aria-label="Track filter">
+                <button class="tab active" type="button" data-filter="all">All</button>
+              </div>
+            </div>
+
+            <div id="trackList" class="track-list" aria-live="polite"></div>
+          </div>
+
+          <aside class="right-rail">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Library</h2>
+                <button id="refreshLibraryButton" class="text-btn" type="button">Refresh</button>
+              </div>
+              <div id="libraryStats" class="artist-list">
+                <p class="import-status">No imported tracks loaded yet.</p>
+              </div>
+            </section>
+
+            <section class="panel queue-panel">
+              <div class="panel-head">
+                <h2>Up next</h2>
+                <button class="icon-btn small" type="button" aria-label="Shuffle queue" title="Shuffle queue">
+                  <span data-lucide="shuffle"></span>
+                </button>
+              </div>
+              <ol id="queueList" class="queue-list"></ol>
+            </section>
+          </aside>
+        </section>
+
         <section id="import-studio" class="import-studio" aria-labelledby="import-title">
           <div class="import-head">
             <div>
@@ -165,44 +203,6 @@
               <p id="importStatus" class="import-status">Waiting for OAuth download.</p>
             </article>
           </div>
-        </section>
-
-        <section class="content-grid">
-          <div class="feed-column">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Signal garden</p>
-                <h2>Drifting through the feed</h2>
-              </div>
-              <div id="filterTabs" class="filter-tabs" role="tablist" aria-label="Track filter">
-                <button class="tab active" type="button" data-filter="all">All</button>
-              </div>
-            </div>
-
-            <div id="trackList" class="track-list" aria-live="polite"></div>
-          </div>
-
-          <aside class="right-rail">
-            <section class="panel">
-              <div class="panel-head">
-                <h2>Library</h2>
-                <button id="refreshLibraryButton" class="text-btn" type="button">Refresh</button>
-              </div>
-              <div id="libraryStats" class="artist-list">
-                <p class="import-status">No imported tracks loaded yet.</p>
-              </div>
-            </section>
-
-            <section class="panel queue-panel">
-              <div class="panel-head">
-                <h2>Up next</h2>
-                <button class="icon-btn small" type="button" aria-label="Shuffle queue" title="Shuffle queue">
-                  <span data-lucide="shuffle"></span>
-                </button>
-              </div>
-              <ol id="queueList" class="queue-list"></ol>
-            </section>
-          </aside>
         </section>
       </main>
     </div>

@@ -76,6 +76,7 @@ def main():
     identity = Path(os.path.expandvars(args.identity)).expanduser() if args.identity else None
 
     tracks_dir = ROOT / "tracks"
+    artwork_dir = ROOT / "artwork"
     data_dir = ROOT / "data"
     manifest = data_dir / "tracks.json"
     skipped = data_dir / "skipped-tracks.json"
@@ -89,6 +90,7 @@ def main():
     listed_sources = manifest_sources(manifest_json)
     missing_locally = [src for src in listed_sources if not (ROOT / src).exists()]
     local_tracks = sorted(path for path in tracks_dir.iterdir() if path.is_file())
+    local_artwork = sorted(path for path in artwork_dir.iterdir() if path.is_file()) if artwork_dir.exists() else []
     remote_names = remote_track_names(args.server, args.remote_dir, identity=identity)
     missing = [path for path in local_tracks if path.name not in remote_names]
 
@@ -96,6 +98,7 @@ def main():
     print(f"Manifest downloaded: {manifest_json.get('downloaded')}")
     print(f"Manifest skipped: {manifest_json.get('skipped')}")
     print(f"Local track files: {len(local_tracks)}")
+    print(f"Local artwork files: {len(local_artwork)}")
     print(f"Remote track files: {len(remote_names)}")
     print(f"Missing remotely: {len(missing)}")
     print(f"Manifest entries missing locally: {len(missing_locally)}")
@@ -122,6 +125,12 @@ def main():
     print("Uploading manifest files only. This is one scp connection.")
     upload_many([manifest, skipped], f"{args.server}:{args.remote_dir}/data/", identity=identity)
 
+    if local_artwork:
+      remote(args.server, f"mkdir -p {args.remote_dir}/artwork", identity=identity)
+      print("")
+      print(f"Uploading {len(local_artwork)} artwork file(s).")
+      upload_many(local_artwork, f"{args.server}:{args.remote_dir}/artwork/", identity=identity)
+
     if missing:
         print("")
         print(f"Uploading {len(missing)} missing track file(s). This is one scp connection.")
@@ -131,7 +140,7 @@ def main():
 
     print("")
     print("Fixing nginx-readable permissions...")
-    remote(args.server, f"chmod o+x /home/shlomia && chmod -R o+rX {args.remote_dir}/data {args.remote_dir}/tracks", identity=identity)
+    remote(args.server, f"chmod o+x /home/shlomia && chmod -R o+rX {args.remote_dir}/data {args.remote_dir}/tracks {args.remote_dir}/artwork 2>/dev/null || true", identity=identity)
 
     print("")
     print("Done. Git remains responsible for site/code files.")
