@@ -15,7 +15,8 @@ These rules are mandatory for any AI/coding agent working in this repository.
 - Track delete is intentionally destructive: `DELETE /api/tracks/<id>` removes the manifest entry and deletes that track's local audio/artwork files when they are not shared by another track. The UI must warn before calling it.
 - Run the local API-driven site on Windows with `start_musicloud_api.cmd`; default URL is `http://127.0.0.1:5174/`.
 - On Linux/server, `./startsite.sh` creates/uses `.venv`, installs `requirements.txt`, and starts `musicloud_api.py` on `127.0.0.1:5174`; `./stopsite.sh` stops it. If venv support is missing, install `python3-venv`.
-- Live upload support requires nginx proxying `/api/` to `127.0.0.1:5174` and a large `client_max_body_size`; see `tools/nginx-tubamobile-api.md`.
+- Live server status as of the last check: `musicloud_api.py` is running locally on the server at `127.0.0.1:5174` and returns JSON there, but `https://tubamobile.com/api/health` still returns `index.html`. That means nginx still needs the `/api/` proxy block.
+- Live upload support requires nginx proxying `/api/` to `127.0.0.1:5174` and `client_max_body_size`. Use `1G` as the preferred upload cap for songs/long WAVs unless the user explicitly wants another value; `5G` was judged too large. See `tools/nginx-tubamobile-api.md`.
 - Administrator/deployment tooling should live in scripts under `tools/` or root-level command scripts, not in the public user flow.
 - Latest local media verification: `data/tracks.json` lists 93 tracks, `data/skipped-tracks.json` lists 0 skipped tracks, and all 93 local audio files are present.
 - Latest live media verification before adding the final 2 manual tracks: the live server had 91 matching files in `/home/shlomia/musicloud/tracks`, no missing live URLs, and no Windows-path filenames in the live `tracks/` folder. After git pull/media sync, re-verify live has 93 tracks.
