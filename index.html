@@ -10,6 +10,25 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <header class="mobile-appbar" aria-label="Mobile header">
+      <a class="brand mobile-brand" href="#" aria-label="Musicloud home">
+        <span class="brand-mark"></span>
+        <span>Musicloud</span>
+      </a>
+      <div class="mobile-app-actions">
+        <button class="icon-btn" type="button" aria-label="Search tracks" title="Search tracks" data-mobile-search>
+          <span data-lucide="search"></span>
+        </button>
+        <button class="icon-btn owner-only" type="button" aria-label="Upload track" title="Upload track" data-mobile-upload>
+          <span data-lucide="upload"></span>
+        </button>
+        <button class="profile-btn mobile-auth-btn" type="button" aria-label="Sign in" data-mobile-auth>
+          <span class="avatar mini avatar-gradient-one"></span>
+          <span data-mobile-auth-label>Sign in</span>
+        </button>
+      </div>
+    </header>
+
     <div class="app-shell">
       <aside class="sidebar" aria-label="Main navigation">
         <a class="brand" href="#" aria-label="Musicloud home">
@@ -114,7 +133,7 @@
           </div>
         </section>
 
-        <section class="content-grid">
+        <section id="feed" class="content-grid">
           <div class="feed-column">
             <div class="section-head">
               <div>
@@ -129,7 +148,7 @@
             <div id="trackList" class="track-list" aria-live="polite"></div>
           </div>
 
-          <aside class="right-rail">
+          <aside id="library" class="right-rail">
             <section class="panel">
               <div class="panel-head">
                 <h2>Library</h2>
@@ -304,6 +323,29 @@
         <input type="range" min="0" max="100" value="78" aria-label="Volume">
       </div>
     </footer>
+
+    <nav class="mobile-nav" aria-label="Mobile navigation">
+      <a class="mobile-nav-item active" href="#feed">
+        <span data-lucide="radio"></span>
+        <span>Feed</span>
+      </a>
+      <a class="mobile-nav-item" href="#library">
+        <span data-lucide="library"></span>
+        <span>Library</span>
+      </a>
+      <button class="mobile-nav-item" type="button" data-mobile-search>
+        <span data-lucide="search"></span>
+        <span>Search</span>
+      </button>
+      <button class="mobile-nav-item owner-only" type="button" data-mobile-upload>
+        <span data-lucide="upload"></span>
+        <span>Upload</span>
+      </button>
+      <button class="mobile-nav-item" type="button" data-mobile-auth>
+        <span data-lucide="user-round"></span>
+        <span data-mobile-auth-label>Sign in</span>
+      </button>
+    </nav>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="script.js"></script>

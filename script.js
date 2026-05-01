@@ -42,6 +42,10 @@ const libraryStats = document.querySelector("#libraryStats");
 const refreshLibraryButton = document.querySelector("#refreshLibraryButton");
 const authButton = document.querySelector("#authButton");
 const authLabel = document.querySelector("#authLabel");
+const mobileAuthButtons = document.querySelectorAll("[data-mobile-auth]");
+const mobileAuthLabels = document.querySelectorAll("[data-mobile-auth-label]");
+const mobileSearchButtons = document.querySelectorAll("[data-mobile-search]");
+const mobileUploadButtons = document.querySelectorAll("[data-mobile-upload]");
 const logoutButton = document.querySelector("#logoutButton");
 const loginModal = document.querySelector("#loginModal");
 const loginForm = document.querySelector("#loginForm");
@@ -165,6 +169,12 @@ function syncAuthUi() {
   if (authButton) {
     authButton.setAttribute("aria-label", isOwner() ? "Owner signed in" : "Sign in");
   }
+  mobileAuthLabels.forEach((label) => {
+    label.textContent = isOwner() ? "Sazran" : "Sign in";
+  });
+  mobileAuthButtons.forEach((button) => {
+    button.setAttribute("aria-label", isOwner() ? "Owner tools" : "Sign in");
+  });
   if (loginTitle) {
     loginTitle.textContent = sessionInfo.setupRequired ? "Create owner account" : "Sign in";
   }
@@ -299,22 +309,22 @@ function renderTracks() {
                   <h3 class="track-title">${escapeHtml(track.title)}</h3>
                 </div>
                 <div class="track-actions">
-                  <button class="track-action" type="button" data-track="${trackIndex}" data-play>
+                  <button class="track-action" type="button" data-track="${trackIndex}" data-play aria-label="${trackIndex === activeTrack && isPlaying ? "Pause" : "Play"} ${escapeHtml(track.title)}">
                     <span data-lucide="${trackIndex === activeTrack && isPlaying ? "pause" : "play"}"></span>
                     ${trackIndex === activeTrack && isPlaying ? "Pause" : "Play"}
                   </button>
-                  <button class="track-action" type="button" data-like>
+                  <button class="track-action" type="button" data-like aria-label="Like ${escapeHtml(track.title)}">
                     <span data-lucide="heart"></span>
                     ${formatCount(track.likes)}
                   </button>
                   ${track.downloadUrl ? `
-                    <a class="track-action" href="${escapeHtml(track.downloadUrl)}" download>
+                    <a class="track-action" href="${escapeHtml(track.downloadUrl)}" download aria-label="Download ${escapeHtml(track.title)}">
                       <span data-lucide="download"></span>
                       Download
                     </a>
                   ` : ""}
                   ${isOwner() ? `
-                    <button class="track-action danger" type="button" data-delete-track="${trackIndex}">
+                    <button class="track-action danger" type="button" data-delete-track="${trackIndex}" aria-label="Delete ${escapeHtml(track.title)}">
                       <span data-lucide="trash-2"></span>
                       Delete
                     </button>
@@ -600,6 +610,27 @@ authButton?.addEventListener("click", () => {
   if (!isOwner()) {
     setLoginOpen(true);
   }
+});
+
+mobileAuthButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!isOwner()) {
+      setLoginOpen(true);
+      return;
+    }
+    document.querySelector("#import-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+mobileSearchButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    searchInput?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => searchInput?.focus(), 220);
+  });
+});
+
+mobileUploadButtons.forEach((button) => {
+  button.addEventListener("click", () => setUploadOpen(true));
 });
 
 logoutButton?.addEventListener("click", async () => {

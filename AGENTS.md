@@ -12,6 +12,7 @@ These rules are mandatory for any AI/coding agent working in this repository.
 - Mission: build and maintain Musicloud, a SoundCloud-style personal music site for Sazran, backed by imported SoundCloud tracks and locally hosted artwork/audio.
 - Local API work has started in `musicloud_api.py`. It serves the site, exposes `/api/tracks`, stream/download endpoints, owner setup/login/logout, and owner-only upload/edit/delete endpoints.
 - Roles are now: listener by default, owner after email/password login, and operator/admin as terminal scripts only. Upload, import, edit, and delete are hidden from listeners and protected server-side.
+- Frontend layout is responsive: keep the current sidebar/grid layout for desktop, and maintain the separate mobile app bar, bottom navigation, compact track cards, and mini-player behavior for phone widths.
 - Track delete is intentionally destructive: `DELETE /api/tracks/<id>` removes the manifest entry and deletes that track's local audio/artwork files when they are not shared by another track. The UI must warn before calling it.
 - Owner account is stored in `.musicloud-users.json`; Flask session secret is stored in `.musicloud-secret-key`. Both are local-only and ignored by git.
 - Run the local API-driven site on Windows with `start_musicloud_api.cmd`; default URL is `http://127.0.0.1:5174/`.
