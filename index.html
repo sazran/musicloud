@@ -38,13 +38,13 @@
             <span data-lucide="list-music"></span>
             <span>Playlists</span>
           </a>
-          <a class="nav-item" href="#import-studio">
+          <a class="nav-item owner-only" href="#import-studio">
             <span data-lucide="folder-input"></span>
             <span>Import</span>
           </a>
         </nav>
 
-        <section class="upload-panel" aria-labelledby="upload-title">
+        <section class="upload-panel owner-only" aria-labelledby="upload-title">
           <div class="upload-icon"><span data-lucide="cloud-up"></span></div>
           <h2 id="upload-title">Launch a cloudcast</h2>
           <p>Collect drafts, mixes, notes, and listener signals in your own sky.</p>
@@ -62,7 +62,7 @@
             <input id="searchInput" type="search" placeholder="Search tracks, artists, moods" aria-label="Search tracks, artists, moods">
           </div>
           <div class="top-actions">
-            <button id="openUploadTopButton" class="icon-btn" type="button" aria-label="Upload track" title="Upload track">
+            <button id="openUploadTopButton" class="icon-btn owner-only" type="button" aria-label="Upload track" title="Upload track">
               <span data-lucide="upload"></span>
             </button>
             <button class="icon-btn" type="button" aria-label="Notifications" title="Notifications">
@@ -71,9 +71,12 @@
             <button class="icon-btn" type="button" aria-label="Messages" title="Messages">
               <span data-lucide="message-circle"></span>
             </button>
-            <button class="profile-btn" type="button" aria-label="Open profile">
+            <button id="authButton" class="profile-btn" type="button" aria-label="Sign in">
               <span class="avatar mini avatar-gradient-one"></span>
-              <span>Sazran</span>
+              <span id="authLabel">Sign in</span>
+            </button>
+            <button id="logoutButton" class="icon-btn owner-only" type="button" aria-label="Log out" title="Log out">
+              <span data-lucide="log-out"></span>
             </button>
           </div>
         </header>
@@ -149,7 +152,7 @@
           </aside>
         </section>
 
-        <section id="import-studio" class="import-studio" aria-labelledby="import-title">
+        <section id="import-studio" class="import-studio owner-only" aria-labelledby="import-title">
           <div class="import-head">
             <div>
               <p class="eyebrow">Import studio</p>
@@ -208,6 +211,34 @@
           </div>
         </section>
       </main>
+    </div>
+
+    <div id="loginModal" class="modal-backdrop" hidden>
+      <section class="upload-dialog" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Owner access</p>
+            <h2 id="loginTitle">Sign in</h2>
+          </div>
+          <button id="closeLoginButton" class="icon-btn small" type="button" aria-label="Close login">
+            <span data-lucide="x"></span>
+          </button>
+        </div>
+
+        <form id="loginForm" class="upload-form">
+          <label for="loginEmailInput">Email</label>
+          <input id="loginEmailInput" class="import-input" name="email" type="email" autocomplete="username" required>
+
+          <label for="loginPasswordInput">Password</label>
+          <input id="loginPasswordInput" class="import-input" name="password" type="password" autocomplete="current-password" required>
+
+          <button id="loginSubmitButton" class="primary-btn" type="submit">
+            <span data-lucide="log-in"></span>
+            Continue
+          </button>
+          <p id="loginStatus" class="import-status">Owner tools require sign in.</p>
+        </form>
+      </section>
     </div>
 
     <div id="uploadModal" class="modal-backdrop" hidden>

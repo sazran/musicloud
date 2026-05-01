@@ -10,9 +10,10 @@ These rules are mandatory for any AI/coding agent working in this repository.
 - Use the live server only for read-only verification unless the user explicitly approves a remote change.
 - The live site is `https://tubamobile.com/`.
 - Mission: build and maintain Musicloud, a SoundCloud-style personal music site for Sazran, backed by imported SoundCloud tracks and locally hosted artwork/audio.
-- Local API work has started in `musicloud_api.py`. It serves the site, exposes `/api/tracks`, stream/download endpoints, and user-facing upload/edit/delete endpoints.
-- The Musicloud web user is treated as the library owner. Upload and delete are available from the UI without token language.
+- Local API work has started in `musicloud_api.py`. It serves the site, exposes `/api/tracks`, stream/download endpoints, owner setup/login/logout, and owner-only upload/edit/delete endpoints.
+- Roles are now: listener by default, owner after email/password login, and operator/admin as terminal scripts only. Upload, import, edit, and delete are hidden from listeners and protected server-side.
 - Track delete is intentionally destructive: `DELETE /api/tracks/<id>` removes the manifest entry and deletes that track's local audio/artwork files when they are not shared by another track. The UI must warn before calling it.
+- Owner account is stored in `.musicloud-users.json`; Flask session secret is stored in `.musicloud-secret-key`. Both are local-only and ignored by git.
 - Run the local API-driven site on Windows with `start_musicloud_api.cmd`; default URL is `http://127.0.0.1:5174/`.
 - On Linux/server, `./startsite.sh` creates/uses `.venv`, installs `requirements.txt`, and starts `musicloud_api.py` on `127.0.0.1:5174`; `./stopsite.sh` stops it. If venv support is missing, install `python3-venv`.
 - Live server status as of the last check: `musicloud_api.py` is running locally on the server at `127.0.0.1:5174` and returns JSON there, but `https://tubamobile.com/api/health` still returns `index.html`. That means nginx still needs the `/api/` proxy block.

@@ -6,11 +6,12 @@ import os
 import secrets
 import shutil
 import wave
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory
+from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory, session
 from werkzeug.exceptions import BadRequest, Forbidden, NotFound
+from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 
@@ -19,16 +20,31 @@ DATA_DIR = ROOT / "data"
 TRACKS_DIR = ROOT / "tracks"
 ARTWORK_DIR = ROOT / "artwork"
 MANIFEST_PATH = DATA_DIR / "tracks.json"
+USERS_PATH = ROOT / ".musicloud-users.json"
+SECRET_KEY_PATH = ROOT / ".musicloud-secret-key"
 
 APP_NAME = "Musicloud"
 DEFAULT_ARTIST = "sazran"
-MAX_UPLOAD_BYTES = int(os.environ.get("MUSICLOUD_MAX_UPLOAD_BYTES", str(5 * 1024 * 1024 * 1024)))
+MAX_UPLOAD_BYTES = int(os.environ.get("MUSICLOUD_MAX_UPLOAD_BYTES", str(1 * 1024 * 1024 * 1024)))
 ALLOWED_AUDIO_EXTENSIONS = {".wav", ".wave", ".aif", ".aiff", ".flac", ".mp3", ".aac", ".m4a", ".ogg"}
 ALLOWED_ARTWORK_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
 
+def load_secret_key():
+    env_secret = os.environ.get("MUSICLOUD_SECRET_KEY", "").strip()
+    if env_secret:
+        return env_secret
+    if SECRET_KEY_PATH.exists():
+        return SECRET_KEY_PATH.read_text(encoding="utf-8").strip()
+    secret = secrets.token_urlsafe(48)
+    SECRET_KEY_PATH.write_text(secret + "\n", encoding="utf-8")
+    return secret
+
+
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+app.secret_key = load_secret_key()
 
 
 def utc_now():
@@ -80,6 +96,59 @@ def save_manifest(manifest):
     manifest["downloaded"] = len([track for track in manifest.get("tracks", []) if not track.get("hidden")])
     manifest["skipped"] = int(manifest.get("skipped") or 0)
     write_json_atomic(MANIFEST_PATH, manifest)
+
+
+def normalize_email(value):
+    return str(value or "").strip().lower()
+
+
+def load_users():
+    users = read_json(USERS_PATH, {"owner": None})
+    if not isinstance(users, dict):
+        raise BadRequest("User config must be an object.")
+    return users
+
+
+def save_users(users):
+    write_json_atomic(USERS_PATH, users)
+
+
+def get_owner():
+    return load_users().get("owner")
+
+
+def owner_configured():
+    owner = get_owner()
+    return bool(owner and owner.get("email") and owner.get("passwordHash"))
+
+
+def current_user():
+    if session.get("role") == "owner" and session.get("email"):
+        return {"email": session["email"], "role": "owner"}
+    return None
+
+
+def session_payload():
+    user = current_user()
+    return {
+        "authenticated": bool(user),
+        "role": user["role"] if user else "listener",
+        "email": user["email"] if user else "",
+        "setupRequired": not owner_configured(),
+    }
+
+
+def require_owner():
+    if not owner_configured():
+        raise Forbidden("Create the owner account before changing tracks.")
+    user = current_user()
+    if not user or user.get("role") != "owner":
+        raise Forbidden("Owner login required.")
+
+
+def require_visible_or_owner(track):
+    if track.get("hidden") and (not current_user() or current_user().get("role") != "owner"):
+        raise NotFound("Track not found.")
 
 
 def safe_stem(value):
@@ -213,10 +282,70 @@ def health():
     )
 
 
+@app.get("/api/session")
+def get_session():
+    return jsonify(session_payload())
+
+
+@app.post("/api/setup")
+def setup_owner():
+    if owner_configured():
+        return jsonify({"error": "Owner account already exists."}), 409
+
+    payload = request.get_json(silent=True) or {}
+    email = normalize_email(payload.get("email"))
+    password = str(payload.get("password") or "")
+    if not email or "@" not in email:
+        raise BadRequest("Enter a valid email address.")
+    if len(password) < 8:
+        raise BadRequest("Password must be at least 8 characters.")
+
+    users = {
+        "owner": {
+            "email": email,
+            "passwordHash": generate_password_hash(password),
+            "createdAt": utc_now(),
+        }
+    }
+    save_users(users)
+    session.clear()
+    session.permanent = True
+    session["role"] = "owner"
+    session["email"] = email
+    return jsonify(session_payload()), 201
+
+
+@app.post("/api/login")
+def login():
+    owner = get_owner()
+    if not owner_configured():
+        raise BadRequest("Create the owner account first.")
+
+    payload = request.get_json(silent=True) or {}
+    email = normalize_email(payload.get("email"))
+    password = str(payload.get("password") or "")
+    if email != normalize_email(owner.get("email")) or not check_password_hash(owner.get("passwordHash", ""), password):
+        raise Forbidden("Email or password is incorrect.")
+
+    session.clear()
+    session.permanent = True
+    session["role"] = "owner"
+    session["email"] = normalize_email(owner.get("email"))
+    return jsonify(session_payload())
+
+
+@app.post("/api/logout")
+def logout():
+    session.clear()
+    return jsonify(session_payload())
+
+
 @app.get("/api/tracks")
 def list_tracks():
     manifest = load_manifest()
     include_hidden = request.args.get("include_hidden") == "1"
+    if include_hidden:
+        require_owner()
     tracks = [
         with_api_links(track)
         for track in manifest.get("tracks", [])
@@ -232,6 +361,7 @@ def list_tracks():
 def get_track(item_id):
     manifest = load_manifest()
     _, track = find_track(manifest, item_id)
+    require_visible_or_owner(track)
     return jsonify(with_api_links(track))
 
 
@@ -239,6 +369,7 @@ def get_track(item_id):
 def stream_track(item_id):
     manifest = load_manifest()
     _, track = find_track(manifest, item_id)
+    require_visible_or_owner(track)
     path = resolve_local_path(track.get("src"), TRACKS_DIR)
     return send_file(path, mimetype=mimetypes.guess_type(path.name)[0], conditional=True)
 
@@ -247,6 +378,7 @@ def stream_track(item_id):
 def download_track(item_id):
     manifest = load_manifest()
     _, track = find_track(manifest, item_id)
+    require_visible_or_owner(track)
     path = resolve_local_path(track.get("src"), TRACKS_DIR)
     download_name = path.name
     return send_file(path, as_attachment=True, download_name=download_name, conditional=True)
@@ -254,6 +386,7 @@ def download_track(item_id):
 
 @app.post("/api/tracks")
 def upload_track():
+    require_owner()
     audio = request.files.get("audio")
     if not audio or not audio.filename:
         raise BadRequest("Choose an audio file first.")
@@ -295,6 +428,7 @@ def upload_track():
 
 @app.patch("/api/tracks/<item_id>")
 def update_track(item_id):
+    require_owner()
     payload = request.get_json(silent=True) or {}
     allowed_fields = {"title", "artist", "genre"}
     manifest = load_manifest()
@@ -311,6 +445,7 @@ def update_track(item_id):
 
 @app.delete("/api/tracks/<item_id>")
 def delete_track(item_id):
+    require_owner()
     manifest = load_manifest()
     index, track = find_track(manifest, item_id)
     remaining_tracks = [item for item_index, item in enumerate(manifest.get("tracks", [])) if item_index != index]

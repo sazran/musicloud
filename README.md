@@ -7,7 +7,9 @@ start_musicloud_api.cmd
 ```
 
 Open the printed local URL.
-The website user can upload and delete tracks from the UI. Delete shows a browser warning and then removes the manifest entry plus the local audio/artwork files for that track.
+Listeners can browse, play, search, and download. The owner signs in with email and password to upload, import, edit, and delete tracks. Delete shows a browser warning and then removes the manifest entry plus the local audio/artwork files for that track.
+
+On first run, use the Sign in button to create the owner account.
 
 On Linux/server, run:
 

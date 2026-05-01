@@ -1,5 +1,7 @@
 .musicloud-soundcloud.json
 .musicloud-admin-token
+.musicloud-users.json
+.musicloud-secret-key
 .venv/
 __pycache__/
 *.pyc

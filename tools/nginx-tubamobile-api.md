@@ -36,7 +36,7 @@ sudo nano /etc/nginx/sites-available/tubamobile
 Inside the `server_name tubamobile.com;` server block, add or update this before the normal static `location /`:
 
 ```nginx
-client_max_body_size 5G;
+client_max_body_size 1G;
 
 location = /api {
     return 308 /api/;
@@ -76,6 +76,6 @@ If `/api/health` returns HTML, nginx is still serving the static site instead of
 ## Notes
 
 - HTTP 413 means nginx or Flask rejected the upload size.
-- nginx needs `client_max_body_size 5G;`.
-- Flask defaults to `MUSICLOUD_MAX_UPLOAD_BYTES=5368709120`, which is 5GB.
+- nginx should use `client_max_body_size 1G;`.
+- Flask defaults to `MUSICLOUD_MAX_UPLOAD_BYTES=1073741824`, which is 1GB.
 - `./startsite.sh` now starts the API server, not a static file server.

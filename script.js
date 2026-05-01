@@ -8,6 +8,7 @@ const waveformPatterns = [
 
 let tracks = [];
 let manifestInfo = null;
+let sessionInfo = { authenticated: false, role: "listener", email: "", setupRequired: false };
 let activeFilter = "all";
 let activeTrack = 0;
 let isPlaying = false;
@@ -39,6 +40,17 @@ const commandPreview = document.querySelector("#commandPreview");
 const importStatus = document.querySelector("#importStatus");
 const libraryStats = document.querySelector("#libraryStats");
 const refreshLibraryButton = document.querySelector("#refreshLibraryButton");
+const authButton = document.querySelector("#authButton");
+const authLabel = document.querySelector("#authLabel");
+const logoutButton = document.querySelector("#logoutButton");
+const loginModal = document.querySelector("#loginModal");
+const loginForm = document.querySelector("#loginForm");
+const closeLoginButton = document.querySelector("#closeLoginButton");
+const loginTitle = document.querySelector("#loginTitle");
+const loginEmailInput = document.querySelector("#loginEmailInput");
+const loginPasswordInput = document.querySelector("#loginPasswordInput");
+const loginSubmitButton = document.querySelector("#loginSubmitButton");
+const loginStatus = document.querySelector("#loginStatus");
 const openUploadButton = document.querySelector("#openUploadButton");
 const openUploadTopButton = document.querySelector("#openUploadTopButton");
 const closeUploadButton = document.querySelector("#closeUploadButton");
@@ -126,8 +138,66 @@ function getImportCommand() {
   return "py start_musicloud_import.py";
 }
 
+function isOwner() {
+  return sessionInfo.authenticated && sessionInfo.role === "owner";
+}
+
+function setLoginOpen(isOpen) {
+  if (!loginModal) return;
+  loginModal.hidden = !isOpen;
+  if (isOpen) {
+    syncAuthUi();
+    window.setTimeout(() => loginEmailInput?.focus(), 0);
+  }
+}
+
+function setLoginStatus(message) {
+  if (loginStatus) {
+    loginStatus.textContent = message;
+  }
+}
+
+function syncAuthUi() {
+  document.body.classList.toggle("owner-session", isOwner());
+  if (authLabel) {
+    authLabel.textContent = isOwner() ? "Sazran" : "Sign in";
+  }
+  if (authButton) {
+    authButton.setAttribute("aria-label", isOwner() ? "Owner signed in" : "Sign in");
+  }
+  if (loginTitle) {
+    loginTitle.textContent = sessionInfo.setupRequired ? "Create owner account" : "Sign in";
+  }
+  if (loginSubmitButton) {
+    const label = sessionInfo.setupRequired ? "Create account" : "Sign in";
+    loginSubmitButton.innerHTML = `<span data-lucide="${sessionInfo.setupRequired ? "user-plus" : "log-in"}"></span>${label}`;
+  }
+  if (loginPasswordInput) {
+    loginPasswordInput.autocomplete = sessionInfo.setupRequired ? "new-password" : "current-password";
+  }
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+async function loadSession() {
+  try {
+    const response = await fetch("/api/session", { cache: "no-store" });
+    if (!response.ok) return;
+    sessionInfo = await response.json();
+  } catch {
+    sessionInfo = { authenticated: false, role: "listener", email: "", setupRequired: false };
+  }
+  syncAuthUi();
+}
+
 function setUploadOpen(isOpen) {
   if (!uploadModal) return;
+  if (isOpen && !isOwner()) {
+    setLoginOpen(true);
+    setLoginStatus(sessionInfo.setupRequired ? "Create the owner account to upload tracks." : "Sign in as owner to upload tracks.");
+    return;
+  }
   uploadModal.hidden = !isOpen;
   if (isOpen) {
     window.setTimeout(() => audioFileInput?.focus(), 0);
@@ -243,10 +313,12 @@ function renderTracks() {
                       Download
                     </a>
                   ` : ""}
-                  <button class="track-action danger" type="button" data-delete-track="${trackIndex}">
-                    <span data-lucide="trash-2"></span>
-                    Delete
-                  </button>
+                  ${isOwner() ? `
+                    <button class="track-action danger" type="button" data-delete-track="${trackIndex}">
+                      <span data-lucide="trash-2"></span>
+                      Delete
+                    </button>
+                  ` : ""}
                 </div>
               </div>
               ${makeWaveform(track, trackIndex)}
@@ -461,6 +533,11 @@ document.addEventListener("click", (event) => {
     const trackIndex = Number(deleteButton.dataset.deleteTrack);
     const track = tracks[trackIndex];
     if (!track) return;
+    if (!isOwner()) {
+      setLoginOpen(true);
+      setLoginStatus("Sign in as owner to delete tracks.");
+      return;
+    }
     const confirmed = window.confirm(`Delete "${track.title}" from Musicloud?\n\nThis removes it from the site and deletes its local audio/artwork files. This cannot be undone.`);
     if (!confirmed) return;
 
@@ -519,6 +596,56 @@ progressRange.addEventListener("input", () => {
   renderTracks();
 });
 
+authButton?.addEventListener("click", () => {
+  if (!isOwner()) {
+    setLoginOpen(true);
+  }
+});
+
+logoutButton?.addEventListener("click", async () => {
+  await fetch("/api/logout", { method: "POST" }).catch(() => {});
+  await loadSession();
+  renderTracks();
+});
+
+closeLoginButton?.addEventListener("click", () => setLoginOpen(false));
+
+loginModal?.addEventListener("click", (event) => {
+  if (event.target === loginModal) {
+    setLoginOpen(false);
+  }
+});
+
+loginForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const email = loginEmailInput?.value.trim() || "";
+  const password = loginPasswordInput?.value || "";
+  if (!email || !password) {
+    setLoginStatus("Enter email and password.");
+    return;
+  }
+
+  const endpoint = sessionInfo.setupRequired ? "/api/setup" : "/api/login";
+  setLoginStatus(sessionInfo.setupRequired ? "Creating owner account..." : "Signing in...");
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, password })
+    });
+    sessionInfo = await readApiResponse(response, sessionInfo.setupRequired ? "Create account" : "Sign in");
+    loginForm.reset();
+    setLoginOpen(false);
+    setLoginStatus("Owner signed in.");
+    syncAuthUi();
+    renderTracks();
+  } catch (error) {
+    setLoginStatus(error.message);
+  }
+});
+
 openUploadButton?.addEventListener("click", () => setUploadOpen(true));
 openUploadTopButton?.addEventListener("click", () => setUploadOpen(true));
 closeUploadButton?.addEventListener("click", () => setUploadOpen(false));
@@ -538,6 +665,11 @@ audioFileInput?.addEventListener("change", () => {
 
 uploadForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!isOwner()) {
+    setUploadStatus("Sign in as owner to upload tracks.");
+    setLoginOpen(true);
+    return;
+  }
   if (!audioFileInput?.files?.length) {
     setUploadStatus("Choose an audio file first.");
     return;
@@ -670,6 +802,7 @@ async function loadExportedTracks() {
 }
 
 async function init() {
+  await loadSession();
   await loadExportedTracks();
   renderFilters();
   renderQueue();
