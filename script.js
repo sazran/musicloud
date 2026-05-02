@@ -217,6 +217,8 @@ function syncAuthUi() {
 }
 
 async function logoutOwner() {
+  stopPlayback();
+  syncAuthUi();
   await fetch("/api/logout", { method: "POST" }).catch(() => {});
   setAccountOpen(false);
   await loadSession();
@@ -531,6 +533,14 @@ function requestAudioPause() {
   window.clearInterval(timerId);
 }
 
+function stopPlayback() {
+  if (!isPlaying && audio.paused) return;
+  isPlaying = false;
+  requestAudioPause();
+  syncPlayer();
+  renderTracks();
+}
+
 function playTrack(trackIndex, startAt = 0) {
   if (!tracks.length || !tracks[trackIndex]) return;
   activeTrack = trackIndex;
@@ -712,14 +722,16 @@ progressRange.addEventListener("input", () => {
   syncActiveWaveformProgress();
 });
 
-authButton?.addEventListener("click", () => {
+bindPlayerPress(authButton, () => {
+  stopPlayback();
   if (!isOwner()) {
     setLoginOpen(true);
   }
 });
 
 mobileAuthButtons.forEach((button) => {
-  button.addEventListener("click", () => {
+  bindPlayerPress(button, () => {
+    stopPlayback();
     if (!isOwner()) {
       setLoginOpen(true);
       return;
@@ -739,7 +751,7 @@ mobileUploadButtons.forEach((button) => {
   button.addEventListener("click", () => setUploadOpen(true));
 });
 
-logoutButton?.addEventListener("click", async () => {
+bindPlayerPress(logoutButton, async () => {
   await logoutOwner();
 });
 
@@ -769,7 +781,7 @@ accountImportButton?.addEventListener("click", () => {
   document.querySelector("#import-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-accountLogoutButton?.addEventListener("click", async () => {
+bindPlayerPress(accountLogoutButton, async () => {
   await logoutOwner();
 });
 
@@ -793,6 +805,7 @@ loginForm?.addEventListener("submit", async (event) => {
       body: JSON.stringify({ email, password })
     });
     sessionInfo = await readApiResponse(response, sessionInfo.setupRequired ? "Create account" : "Sign in");
+    stopPlayback();
     loginForm.reset();
     setLoginOpen(false);
     setLoginStatus("Owner signed in.");
