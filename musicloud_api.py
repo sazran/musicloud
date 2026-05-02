@@ -328,7 +328,7 @@ def track_waveform(track):
     if entry and entry.get("src") == track.get("src"):
         try:
             stat = path.stat()
-            if entry.get("mtimeNs") == stat.st_mtime_ns and entry.get("size") == stat.st_size:
+            if entry.get("size") == stat.st_size:
                 peaks = entry.get("peaks")
                 if isinstance(peaks, list):
                     return peaks
