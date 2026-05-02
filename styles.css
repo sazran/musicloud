@@ -854,7 +854,7 @@ input.is-disabled {
 
 .waveform {
   display: grid;
-  grid-template-columns: repeat(var(--waveform-bars, 64), 1fr);
+  grid-template-columns: repeat(var(--waveform-bars, 64), minmax(0, 1fr));
   align-items: center;
   gap: 2px;
   height: 56px;
@@ -1448,11 +1448,6 @@ input[type="range"] {
     height: 44px;
     margin: 10px 0 7px;
     gap: 1px;
-    grid-template-columns: repeat(64, minmax(1px, 1fr));
-  }
-
-  .waveform .bar:nth-child(n + 65) {
-    display: none;
   }
 
   .track-meta {
@@ -1639,11 +1634,7 @@ input[type="range"] {
   }
 
   .waveform {
-    grid-template-columns: repeat(48, minmax(1px, 1fr));
-  }
-
-  .waveform .bar:nth-child(n + 49) {
-    display: none;
+    gap: 0;
   }
 
   .track-meta span:nth-child(2) {
