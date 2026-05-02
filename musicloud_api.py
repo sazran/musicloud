@@ -1,10 +1,12 @@
 import argparse
+import audioop
 import hashlib
 import json
 import mimetypes
 import os
 import secrets
 import shutil
+import subprocess
 import wave
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -20,6 +22,7 @@ DATA_DIR = ROOT / "data"
 TRACKS_DIR = ROOT / "tracks"
 ARTWORK_DIR = ROOT / "artwork"
 MANIFEST_PATH = DATA_DIR / "tracks.json"
+WAVEFORMS_PATH = DATA_DIR / "waveforms.json"
 USERS_PATH = ROOT / ".musicloud-users.json"
 SECRET_KEY_PATH = ROOT / ".musicloud-secret-key"
 
@@ -28,6 +31,9 @@ DEFAULT_ARTIST = "sazran"
 MAX_UPLOAD_BYTES = int(os.environ.get("MUSICLOUD_MAX_UPLOAD_BYTES", str(1 * 1024 * 1024 * 1024)))
 ALLOWED_AUDIO_EXTENSIONS = {".wav", ".wave", ".aif", ".aiff", ".flac", ".mp3", ".aac", ".m4a", ".ogg"}
 ALLOWED_ARTWORK_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+WAVEFORM_BARS = 128
+WAVEFORM_CACHE = {}
+WAVEFORMS_DATA_CACHE = {"mtime_ns": None, "payload": None}
 
 
 def load_secret_key():
@@ -71,6 +77,33 @@ def write_json_atomic(path, payload):
     temp_path = path.with_suffix(path.suffix + ".tmp")
     temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     temp_path.replace(path)
+
+
+def load_waveforms():
+    try:
+        mtime_ns = WAVEFORMS_PATH.stat().st_mtime_ns
+    except OSError:
+        mtime_ns = None
+    if WAVEFORMS_DATA_CACHE["mtime_ns"] == mtime_ns and WAVEFORMS_DATA_CACHE["payload"] is not None:
+        return WAVEFORMS_DATA_CACHE["payload"]
+
+    payload = read_json(WAVEFORMS_PATH, {"bars": WAVEFORM_BARS, "tracks": {}})
+    if not isinstance(payload, dict) or not isinstance(payload.get("tracks"), dict):
+        payload = {"bars": WAVEFORM_BARS, "tracks": {}}
+    WAVEFORMS_DATA_CACHE["mtime_ns"] = mtime_ns
+    WAVEFORMS_DATA_CACHE["payload"] = payload
+    return payload
+
+
+def save_waveforms(payload):
+    payload["bars"] = WAVEFORM_BARS
+    write_json_atomic(WAVEFORMS_PATH, payload)
+    try:
+        mtime_ns = WAVEFORMS_PATH.stat().st_mtime_ns
+    except OSError:
+        mtime_ns = None
+    WAVEFORMS_DATA_CACHE["mtime_ns"] = mtime_ns
+    WAVEFORMS_DATA_CACHE["payload"] = payload
 
 
 def load_manifest():
@@ -177,12 +210,171 @@ def track_id(track):
     return hashlib.sha1(src.encode("utf-8")).hexdigest()[:12]
 
 
+def waveform_cache_key(path, bars):
+    stat = path.stat()
+    return (str(path), stat.st_mtime_ns, stat.st_size, bars)
+
+
+def normalize_waveform_values(values):
+    if not values:
+        return []
+    sorted_values = sorted(values)
+    high_index = max(0, min(len(sorted_values) - 1, round((len(sorted_values) - 1) * 0.90)))
+    ceiling = sorted_values[high_index] or max(sorted_values) or 1
+    normalized = []
+    for value in values:
+        ratio = max(0, min(1, value / ceiling))
+        # Preserve variation in quiet sections. A tiny visual floor prevents
+        # silence from disappearing, but low audio is not clamped into one block.
+        normalized.append(round(0.012 + 0.84 * (ratio ** 1.2), 4))
+    return normalized
+
+
+def wav_waveform(path, bars=WAVEFORM_BARS):
+    if path.suffix.lower() not in {".wav", ".wave"}:
+        return []
+
+    key = waveform_cache_key(path, bars)
+    cached = WAVEFORM_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    try:
+        with wave.open(str(path), "rb") as audio:
+            frame_count = audio.getnframes()
+            sample_width = audio.getsampwidth()
+            channels = audio.getnchannels()
+            if frame_count <= 0 or sample_width <= 0:
+                return []
+
+            frames_per_bar = max(1, frame_count // bars)
+            levels = []
+            for _ in range(bars):
+                frames = audio.readframes(frames_per_bar)
+                if not frames:
+                    levels.append(0)
+                    continue
+                if channels > 1:
+                    frames = audioop.tomono(frames, sample_width, 1 / channels, 1 / channels)
+                levels.append(audioop.rms(frames, sample_width))
+
+        normalized = normalize_waveform_values(levels)
+        WAVEFORM_CACHE[key] = normalized
+        return normalized
+    except Exception:
+        return []
+
+
+def ffmpeg_waveform(path, bars=WAVEFORM_BARS):
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        return []
+
+    key = waveform_cache_key(path, bars)
+    cached = WAVEFORM_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    try:
+        result = subprocess.run(
+            [
+                ffmpeg,
+                "-v",
+                "error",
+                "-i",
+                str(path),
+                "-ac",
+                "1",
+                "-ar",
+                "8000",
+                "-f",
+                "s16le",
+                "pipe:1",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=60,
+        )
+        pcm = result.stdout
+        sample_width = 2
+        frame_count = len(pcm) // sample_width
+        if frame_count <= 0:
+            return []
+
+        frames_per_bar = max(1, frame_count // bars)
+        bytes_per_bar = frames_per_bar * sample_width
+        levels = []
+        for index in range(bars):
+            start = index * bytes_per_bar
+            chunk = pcm[start:start + bytes_per_bar]
+            levels.append(audioop.rms(chunk, sample_width) if chunk else 0)
+
+        normalized = normalize_waveform_values(levels)
+        WAVEFORM_CACHE[key] = normalized
+        return normalized
+    except Exception:
+        WAVEFORM_CACHE[key] = []
+        return []
+
+
+def track_waveform(track):
+    try:
+        path = resolve_local_path(track.get("src"), TRACKS_DIR)
+    except (Forbidden, NotFound):
+        return []
+    waveforms = load_waveforms()
+    entry = waveforms.get("tracks", {}).get(track_id(track))
+    if entry and entry.get("src") == track.get("src"):
+        try:
+            stat = path.stat()
+            if entry.get("mtimeNs") == stat.st_mtime_ns and entry.get("size") == stat.st_size:
+                peaks = entry.get("peaks")
+                if isinstance(peaks, list):
+                    return peaks
+        except OSError:
+            return []
+    return wav_waveform(path) or ffmpeg_waveform(path)
+
+
+def cache_track_waveform(track):
+    try:
+        path = resolve_local_path(track.get("src"), TRACKS_DIR)
+        peaks = wav_waveform(path) or ffmpeg_waveform(path)
+        stat = path.stat()
+    except (Forbidden, NotFound, OSError):
+        peaks = []
+        stat = None
+
+    waveforms = load_waveforms()
+    tracks = waveforms.setdefault("tracks", {})
+    item_id = track_id(track)
+    if peaks and stat:
+        tracks[item_id] = {
+            "src": track.get("src"),
+            "mtimeNs": stat.st_mtime_ns,
+            "size": stat.st_size,
+            "peaks": peaks,
+        }
+    else:
+        tracks.pop(item_id, None)
+    save_waveforms(waveforms)
+    return peaks
+
+
+def remove_cached_waveform(track):
+    waveforms = load_waveforms()
+    waveforms.setdefault("tracks", {}).pop(track_id(track), None)
+    save_waveforms(waveforms)
+
+
 def with_api_links(track):
     item = dict(track)
     item_id = track_id(track)
     item["id"] = item_id
     item["streamUrl"] = f"/api/tracks/{item_id}/stream"
     item["downloadUrl"] = f"/api/tracks/{item_id}/download"
+    item["waveform"] = track_waveform(track)
     return item
 
 
@@ -422,6 +614,7 @@ def upload_track():
         "uploadedAt": utc_now(),
     }
     manifest.setdefault("tracks", []).append(new_track)
+    cache_track_waveform(new_track)
     save_manifest(manifest)
     return jsonify(with_api_links(new_track)), 201
 
@@ -456,6 +649,7 @@ def delete_track(item_id):
     deleted = [item for item in deleted if item]
 
     manifest["tracks"] = remaining_tracks
+    remove_cached_waveform(track)
     save_manifest(manifest)
     return jsonify({"ok": True, "track": with_api_links(track), "media": deleted})
 

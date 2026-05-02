@@ -14,6 +14,7 @@ let activeTrack = 0;
 let isPlaying = false;
 let currentSecond = 0;
 let timerId = null;
+let playbackRequestId = 0;
 const audio = new Audio();
 audio.preload = "metadata";
 
@@ -28,6 +29,8 @@ const progressRange = document.querySelector("#progressRange");
 const currentTime = document.querySelector("#currentTime");
 const durationTime = document.querySelector("#durationTime");
 const playerToggle = document.querySelector("[data-player-toggle]");
+const previousButton = document.querySelector("[data-prev]");
+const nextButton = document.querySelector("[data-next]");
 const featuredPlay = document.querySelector("[data-featured-play]");
 const clientIdInput = document.querySelector("#clientIdInput");
 const redirectInput = document.querySelector("#redirectInput");
@@ -97,7 +100,7 @@ function normalizeTrack(track, index) {
   return {
     id: track.id || track.soundcloudId || `${index}`,
     title: track.title || `Untitled ${index + 1}`,
-    artist: track.artist || "Musicloud",
+    artist: track.artist || "Tuba Mobile",
     genre: (track.genre || "cloudcast").toLowerCase(),
     duration: Number(track.duration) || 0,
     plays: track.plays || 0,
@@ -110,6 +113,7 @@ function normalizeTrack(track, index) {
     downloadUrl: track.downloadUrl || track.src || "",
     soundcloudUrl: track.soundcloudUrl || "",
     source: track.source || "",
+    waveform: Array.isArray(track.waveform) ? track.waveform.map(Number).filter(Number.isFinite) : [],
     pattern: track.pattern || waveformPatterns[index % waveformPatterns.length]
   };
 }
@@ -264,11 +268,11 @@ async function readApiResponse(response, action) {
   }
 
   if (response.status === 413) {
-    throw new Error("The server rejected this upload as too large. On tubamobile.com, nginx needs a larger client_max_body_size and /api must proxy to Musicloud API.");
+    throw new Error("The server rejected this upload as too large. On tubamobile.com, nginx needs a larger client_max_body_size and /api must proxy to the Tuba Mobile API.");
   }
 
   if (!isJson) {
-    throw new Error(`Musicloud API is not reachable for ${action}. The server is returning the website page instead of API JSON.`);
+    throw new Error(`Tuba Mobile API is not reachable for ${action}. The server is returning the website page instead of API JSON.`);
   }
 
   throw new Error(payload.error || `${action} failed with HTTP ${response.status}.`);
@@ -310,15 +314,17 @@ function getCoverMarkup(track, className = "cover") {
 
 function makeWaveform(track, trackIndex) {
   const duration = getTrackDuration(track);
-  const bars = Array.from({ length: 64 }, (_, index) => {
-    const base = track.pattern[index % track.pattern.length];
-    const variation = (index * 11 + track.title.length * 3) % 24;
-    const height = Math.min(92, base + variation);
-    const playedClass = trackIndex === activeTrack && index / 64 <= currentSecond / duration ? " played" : "";
+  const peaks = track.waveform.length ? track.waveform : null;
+  const barCount = peaks ? peaks.length : 64;
+  const bars = Array.from({ length: barCount }, (_, index) => {
+    const height = peaks
+      ? Math.max(2, Math.round(peaks[index] * 92))
+      : Math.min(92, track.pattern[index % track.pattern.length] + ((index * 11 + track.title.length * 3) % 24));
+    const playedClass = trackIndex === activeTrack && index / barCount <= currentSecond / duration ? " played" : "";
     return `<span class="bar${playedClass}" style="height:${height}%"></span>`;
   }).join("");
 
-  return `<button class="waveform" type="button" aria-label="Play ${escapeHtml(track.title)}" data-track="${trackIndex}">${bars}</button>`;
+  return `<button class="waveform" type="button" aria-label="Play ${escapeHtml(track.title)}" data-track="${trackIndex}" style="--waveform-bars:${barCount}">${bars}</button>`;
 }
 
 function renderTracks() {
@@ -329,7 +335,7 @@ function renderTracks() {
         const isActive = trackIndex === activeTrack ? " active" : "";
         const duration = getTrackDuration(track);
         return `
-          <article class="track-card${isActive}">
+          <article class="track-card${isActive}" data-track-card="${trackIndex}">
             ${getCoverMarkup(track)}
             <div class="track-main">
               <div class="track-top">
@@ -342,7 +348,7 @@ function renderTracks() {
                     <span data-lucide="${trackIndex === activeTrack && isPlaying ? "pause" : "play"}"></span>
                     ${trackIndex === activeTrack && isPlaying ? "Pause" : "Play"}
                   </button>
-                  <button class="track-action" type="button" data-like aria-label="Like ${escapeHtml(track.title)}">
+                  <button class="track-action is-disabled" type="button" data-like aria-label="Likes unavailable" disabled>
                     <span data-lucide="heart"></span>
                     ${formatCount(track.likes)}
                   </button>
@@ -429,7 +435,7 @@ function syncPlayer() {
   const track = tracks[activeTrack];
   if (!track) {
     playerTitle.textContent = "No track selected";
-    playerArtist.textContent = "Musicloud";
+    playerArtist.textContent = "Tuba Mobile";
     playerArt.className = "mini-cover cover-one";
     playerArt.style.backgroundImage = "";
     progressRange.value = "0";
@@ -454,10 +460,34 @@ function syncPlayer() {
   progressRange.value = String((currentSecond / duration) * 100);
   currentTime.textContent = formatTime(currentSecond);
   durationTime.textContent = formatTime(duration);
-  playerToggle.innerHTML = `<span data-lucide="${isPlaying ? "pause" : "play"}"></span>`;
-  if (window.lucide) {
+  const playerIcon = isPlaying ? "pause" : "play";
+  if (playerToggle.dataset.playerIcon !== playerIcon) {
+    playerToggle.dataset.playerIcon = playerIcon;
+    playerToggle.innerHTML = `<span data-lucide="${playerIcon}"></span>`;
+  }
+  if (window.lucide && playerToggle.querySelector("[data-lucide]")) {
     window.lucide.createIcons();
   }
+}
+
+function scrollActiveTrackIntoView() {
+  const activeCard = document.querySelector(`[data-track-card="${activeTrack}"]`);
+  if (!activeCard) return;
+  const rect = activeCard.getBoundingClientRect();
+  const visibleTop = 86;
+  const visibleBottom = window.innerHeight - 140;
+  if (rect.top >= visibleTop && rect.bottom <= visibleBottom) return;
+  activeCard.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function syncActiveWaveformProgress() {
+  const track = tracks[activeTrack];
+  const activeCard = document.querySelector(`[data-track-card="${activeTrack}"]`);
+  if (!track || !activeCard) return;
+  const duration = getTrackDuration(track);
+  activeCard.querySelectorAll(".waveform .bar").forEach((bar, index, bars) => {
+    bar.classList.toggle("played", index / bars.length <= currentSecond / duration);
+  });
 }
 
 function loadAudioForActiveTrack(startAt = 0) {
@@ -465,8 +495,10 @@ function loadAudioForActiveTrack(startAt = 0) {
   if (!track || !track.src) return false;
   const currentSrc = audio.getAttribute("data-track-src");
   if (currentSrc !== track.src) {
+    audio.pause();
     audio.src = track.src;
     audio.setAttribute("data-track-src", track.src);
+    audio.load();
   }
   try {
     audio.currentTime = startAt;
@@ -478,20 +510,47 @@ function loadAudioForActiveTrack(startAt = 0) {
   return true;
 }
 
+function requestAudioPlayback(startAt = currentSecond) {
+  const requestId = ++playbackRequestId;
+  if (loadAudioForActiveTrack(startAt)) {
+    window.clearInterval(timerId);
+    audio.play().catch(() => {
+      if (requestId !== playbackRequestId) return;
+      isPlaying = false;
+      syncPlayer();
+      renderTracks();
+    });
+    return;
+  }
+  startTimer();
+}
+
+function requestAudioPause() {
+  playbackRequestId += 1;
+  audio.pause();
+  window.clearInterval(timerId);
+}
+
 function playTrack(trackIndex, startAt = 0) {
   if (!tracks.length || !tracks[trackIndex]) return;
   activeTrack = trackIndex;
   currentSecond = startAt;
   isPlaying = true;
-  if (loadAudioForActiveTrack(startAt)) {
-    window.clearInterval(timerId);
-    audio.play().catch(() => {
-      isPlaying = false;
-      syncPlayer();
-      renderTracks();
-    });
+  requestAudioPlayback(startAt);
+  syncPlayer();
+  renderTracks();
+}
+
+function selectTrack(trackIndex, startAt = 0, shouldPlay = isPlaying) {
+  if (!tracks.length || !tracks[trackIndex]) return;
+  activeTrack = trackIndex;
+  currentSecond = startAt;
+  if (shouldPlay) {
+    isPlaying = true;
+    requestAudioPlayback(startAt);
   } else {
-    startTimer();
+    requestAudioPause();
+    loadAudioForActiveTrack(startAt);
   }
   syncPlayer();
   renderTracks();
@@ -516,21 +575,30 @@ function togglePlay() {
   if (!tracks.length) return;
   isPlaying = !isPlaying;
   if (isPlaying) {
-    if (loadAudioForActiveTrack(currentSecond)) {
-      window.clearInterval(timerId);
-      audio.play().catch(() => {
-        isPlaying = false;
-        syncPlayer();
-        renderTracks();
-      });
-    } else {
-      startTimer();
-    }
+    requestAudioPlayback(currentSecond);
   } else {
-    audio.pause();
+    requestAudioPause();
   }
   syncPlayer();
   renderTracks();
+}
+
+function bindPlayerPress(button, handler) {
+  if (!button) return;
+  let handledPointer = false;
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    handledPointer = true;
+    event.preventDefault();
+    handler();
+  });
+  button.addEventListener("click", (event) => {
+    if (handledPointer) {
+      handledPointer = false;
+      return;
+    }
+    handler(event);
+  });
 }
 
 document.addEventListener("click", (event) => {
@@ -539,6 +607,8 @@ document.addEventListener("click", (event) => {
   const likeButton = event.target.closest("[data-like]");
   const filterButton = event.target.closest("[data-filter]");
   const deleteButton = event.target.closest("[data-delete-track]");
+  const trackCard = event.target.closest("[data-track-card]");
+  const clickedTrackControl = event.target.closest("button, a, input, select, textarea");
 
   if (playButton) {
     const trackIndex = Number(playButton.dataset.track);
@@ -554,9 +624,16 @@ document.addEventListener("click", (event) => {
     const rect = waveform.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     playTrack(trackIndex, Math.floor(getTrackDuration(tracks[trackIndex]) * ratio));
+    return;
   }
 
-  if (likeButton) {
+  if (trackCard && !clickedTrackControl) {
+    const trackIndex = Number(trackCard.dataset.trackCard);
+    playTrack(trackIndex, 0);
+    return;
+  }
+
+  if (likeButton && !likeButton.disabled) {
     likeButton.classList.toggle("liked");
   }
 
@@ -577,7 +654,7 @@ document.addEventListener("click", (event) => {
       setLoginStatus("Sign in as owner to delete tracks.");
       return;
     }
-    const confirmed = window.confirm(`Delete "${track.title}" from Musicloud?\n\nThis removes it from the site and deletes its local audio/artwork files. This cannot be undone.`);
+    const confirmed = window.confirm(`Delete "${track.title}" from Tuba Mobile?\n\nThis removes it from the site and deletes its local audio/artwork files. This cannot be undone.`);
     if (!confirmed) return;
 
     fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: "DELETE" })
@@ -601,27 +678,27 @@ document.addEventListener("click", (event) => {
 
 searchInput.addEventListener("input", renderTracks);
 
-playerToggle.addEventListener("click", togglePlay);
+bindPlayerPress(playerToggle, () => {
+  togglePlay();
+  window.requestAnimationFrame(scrollActiveTrackIntoView);
+});
 featuredPlay.addEventListener("click", () => {
-  if (tracks.length) playTrack(0);
+  if (tracks.length) {
+    playTrack(0);
+    scrollActiveTrackIntoView();
+  }
 });
 
-document.querySelector("[data-prev]").addEventListener("click", () => {
+bindPlayerPress(previousButton, () => {
   if (!tracks.length) return;
-  activeTrack = (activeTrack - 1 + tracks.length) % tracks.length;
-  currentSecond = 0;
-  if (isPlaying) playTrack(activeTrack);
-  syncPlayer();
-  renderTracks();
+  selectTrack((activeTrack - 1 + tracks.length) % tracks.length, 0, isPlaying);
+  window.requestAnimationFrame(scrollActiveTrackIntoView);
 });
 
-document.querySelector("[data-next]").addEventListener("click", () => {
+bindPlayerPress(nextButton, () => {
   if (!tracks.length) return;
-  activeTrack = (activeTrack + 1) % tracks.length;
-  currentSecond = 0;
-  if (isPlaying) playTrack(activeTrack);
-  syncPlayer();
-  renderTracks();
+  selectTrack((activeTrack + 1) % tracks.length, 0, isPlaying);
+  window.requestAnimationFrame(scrollActiveTrackIntoView);
 });
 
 progressRange.addEventListener("input", () => {
@@ -632,7 +709,7 @@ progressRange.addEventListener("input", () => {
     audio.currentTime = currentSecond;
   }
   syncPlayer();
-  renderTracks();
+  syncActiveWaveformProgress();
 });
 
 authButton?.addEventListener("click", () => {
@@ -843,7 +920,7 @@ audio.addEventListener("loadedmetadata", () => {
 audio.addEventListener("timeupdate", () => {
   currentSecond = Math.floor(audio.currentTime);
   syncPlayer();
-  renderTracks();
+  syncActiveWaveformProgress();
 });
 
 audio.addEventListener("ended", () => {

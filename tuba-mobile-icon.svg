@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Tuba Mobile">
+  <defs>
+    <linearGradient id="sun" x1="18" y1="16" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7ee7c8"/>
+      <stop offset=".52" stop-color="#8fa8ff"/>
+      <stop offset="1" stop-color="#ffca73"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="#10141d"/>
+  <circle cx="84" cy="44" r="26" fill="url(#sun)"/>
+  <path d="M28 76c0-18 14-32 32-32h22c8 0 14 6 14 14s-6 14-14 14H64v22c0 8-6 14-14 14s-14-6-14-14V72h-8v4z" fill="#fff7cf"/>
+  <path d="M40 72h42c8 0 14-6 14-14" fill="none" stroke="#10141d" stroke-width="9" stroke-linecap="round"/>
+  <path d="M27 54c9-13 23-21 39-21" fill="none" stroke="#7ee7c8" stroke-width="8" stroke-linecap="round"/>
+</svg>
