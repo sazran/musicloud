@@ -80,6 +80,7 @@ def main():
     data_dir = ROOT / "data"
     manifest = data_dir / "tracks.json"
     skipped = data_dir / "skipped-tracks.json"
+    waveforms = data_dir / "waveforms.json"
 
     if not manifest.exists():
         raise SystemExit("Missing data/tracks.json. Run the importer first.")
@@ -122,8 +123,12 @@ def main():
         return 0
 
     print("")
-    print("Uploading manifest files only. This is one scp connection.")
-    upload_many([manifest, skipped], f"{args.server}:{args.remote_dir}/data/", identity=identity)
+    data_files = [manifest, skipped]
+    if waveforms.exists():
+        data_files.append(waveforms)
+
+    print("Uploading data manifest files only. This is one scp connection.")
+    upload_many(data_files, f"{args.server}:{args.remote_dir}/data/", identity=identity)
 
     if local_artwork:
       remote(args.server, f"mkdir -p {args.remote_dir}/artwork", identity=identity)
